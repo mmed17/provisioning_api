@@ -108,6 +108,21 @@ CREATE TABLE `oc_subscriptions_history` (
         ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- 1. Modify the oc_subscriptions table
+ALTER TABLE `oc_subscriptions` 
+MODIFY `status` VARCHAR(50) NOT NULL DEFAULT 'active',
+ADD CONSTRAINT `chk_subscriptions_status` 
+CHECK (`status` IN ('active', 'paused', 'expired', 'cancelled'));
+
+-- 2. Modify the oc_subscriptions_history table
+ALTER TABLE `oc_subscriptions_history` 
+MODIFY `previous_status` VARCHAR(50) DEFAULT NULL,
+MODIFY `new_status` VARCHAR(50) NOT NULL,
+ADD CONSTRAINT `chk_history_previous_status` 
+CHECK (`previous_status` IS NULL OR `previous_status` IN ('active', 'paused', 'expired', 'cancelled')),
+ADD CONSTRAINT `chk_history_new_status` 
+CHECK (`new_status` IN ('active', 'paused', 'expired', 'cancelled'));
+
 
 -- DEFAULT PLANS:
 -- Values remain the same as they align with the storage logic.

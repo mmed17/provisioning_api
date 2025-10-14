@@ -23,6 +23,7 @@ class ComposerStaticInitProvisioning_API
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'OCA\\Provisioning_API\\AppInfo\\Application' => __DIR__ . '/..' . '/../lib/AppInfo/Application.php',
+        'OCA\\Provisioning_API\\BackgroundJob\\CheckExpiredSubscriptions' => __DIR__ . '/..' . '/../lib/BackgroundJob/CheckExpiredSubscriptions.php',
         'OCA\\Provisioning_API\\Capabilities' => __DIR__ . '/..' . '/../lib/Capabilities.php',
         'OCA\\Provisioning_API\\Controller\\AUserDataOCSController' => __DIR__ . '/..' . '/../lib/Controller/AUserDataOCSController.php',
         'OCA\\Provisioning_API\\Controller\\AppConfigController' => __DIR__ . '/..' . '/../lib/Controller/AppConfigController.php',

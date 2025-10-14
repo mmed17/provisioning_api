@@ -50,4 +50,39 @@ class SubscriptionMapper extends QBMapper {
             return null;
         }
     }
+
+    /**
+     * Finds all active subscriptions that have passed their end date
+     * and updates their status to 'expired'.
+     *
+     * @return int The number of subscriptions that were updated.
+     */
+    public function invalidateExpiredSubscriptions(): int {
+        $now = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+
+        // First, find the IDs of all subscriptions that need to be updated.
+        $findQuery = $this->db->getQueryBuilder();
+        $findQuery->select('id')
+            ->from('subscriptions')
+            ->where($findQuery->expr()->eq('status', $findQuery->createNamedParameter('active')))
+            ->andWhere($findQuery->expr()->isNotNull('ended_at'))
+            ->andWhere($findQuery->expr()->lt('ended_at', $findQuery->createNamedParameter($now)));
+
+        $result = $findQuery->execute();
+        $expiredSubscriptionIds = $result->fetchAll(\PDO::FETCH_COLUMN);
+
+        if (empty($expiredSubscriptionIds)) {
+            return 0; // Nothing to do
+        }
+
+        // Now, build a single UPDATE query to mark them all as 'expired'.
+        $updateQuery = $this->db->getQueryBuilder();
+        $updateQuery->update('subscriptions')
+            ->set('status', $updateQuery->createNamedParameter('expired'))
+            ->where($updateQuery->expr()->in('id', $updateQuery->createParameter('ids')));
+
+        $updateQuery->setParameter('ids', $expiredSubscriptionIds, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY);
+        
+        return $updateQuery->executeStatement();
+    }
 }
