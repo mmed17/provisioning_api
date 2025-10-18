@@ -11,13 +11,14 @@ use OCP\AppFramework\IAppContainer;
 use OCP\BackgroundJob\Job;
 use OCP\IDBConnection;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\BackgroundJob\TimedJob;
 use Psr\Log\LoggerInterface;
 
 /**
  * UPDATED: This class now correctly calls the parent constructor to ensure
  * all necessary properties like '$time' are initialized.
  */
-class CheckExpiredSubscriptions extends Job {
+class CheckExpiredSubscriptions extends TimedJob {
 
     /**
      * The constructor for a background job MUST accept the TimeFactory and AppContainer
@@ -25,6 +26,7 @@ class CheckExpiredSubscriptions extends Job {
      */
     public function __construct(protected ITimeFactory $time, private SubscriptionMapper $subscriptionMapper) {
         parent::__construct($time);
+        $this->setInterval(60);
     }
 
     /**
