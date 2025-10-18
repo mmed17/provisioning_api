@@ -96,7 +96,29 @@ class SubscriptionMiddleware extends Middleware {
             throw new OCSForbiddenException('Your organization\'s subscription has expired. Please contact your administrator to renew.');
         }
 
-        // At this point, the user has a valid, active, and non-expired subscription. We allow access.
+        // Priority 2: If not expired, check the status to decide on access.
+         $status = $subscription->getStatus();
+        switch ($status) {
+            case 'active':
+                // Corresponds to `type: 'success'`. The subscription is active and not expired.
+                // --> Allow access.
+                return;
+
+            case 'cancelled':
+                // Corresponds to `type: 'warning'`. The subscription is cancelled but not yet expired.
+                // --> Allow access until the end date is reached.
+                return;
+
+            case 'paused':
+                // Corresponds to `type: 'info'`. The subscription is paused.
+                // --> Block access.
+                throw new OCSForbiddenException('Your organization\'s subscription is currently paused. Please contact your administrator to resume it.');
+
+            default:
+                // This is a fallback for any other status (e.g., 'expired' or an unknown value).
+                // --> Block access.
+                throw new OCSForbiddenException('Your organization\'s subscription is not active. Please contact your administrator.');
+        }
     }
 
     /**
