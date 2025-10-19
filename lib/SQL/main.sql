@@ -139,11 +139,11 @@ ALTER TABLE `oc_subscriptions_history`
 -- DEFAULT PLANS:
 -- Values remain the same as they align with the storage logic.
 INSERT INTO `oc_plans` 
-(`name`, `max_projects`, `max_members`, `shared_storage_per_project`, `private_storage_per_user`, `price`, `currency`, `is_public`)
+    (`name`, `max_projects`, `max_members`, `shared_storage_per_project`, `private_storage_per_user`, `price`, `currency`, `is_public`)
 VALUES 
--- Free Plan: 50 MB shared per project, 1 GB private per user
-('Free', 1, 1, 52428800, 1073741824, 0, 'EUR', TRUE),
--- Pro Plan: 100 MB shared per project, 5 GB private per user
-('Pro', 2, 5, 104857600, 5368709120, 10, 'EUR', TRUE),
--- Gold Plan: 1 GB shared per project, 20 GB private per user
-('Gold', 5, 20, 1073741824, 21474836480, 25, 'EUR', TRUE);
+    -- Free Plan: 50 MB shared per project, 1 GB private per user
+    ('Free', 1, 1, 52428800, 1073741824, 0, 'EUR', TRUE),
+    -- Pro Plan: 100 MB shared per project, 5 GB private per user
+    ('Pro', 2, 5, 104857600, 5368709120, 10, 'EUR', TRUE),
+    -- Gold Plan: 1 GB shared per project, 20 GB private per user
+    ('Gold', 5, 20, 1073741824, 21474836480, 25, 'EUR', TRUE);

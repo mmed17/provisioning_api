@@ -263,7 +263,7 @@ class GroupsController extends AUserDataOCSController {
         $groupId = urldecode($groupId);
 
         // 1. Find the organization using the group ID.
-        $organization = $this->organizationMapper->findOrganizationByGroupId($groupId);
+        $organization = $this->organizationMapper->findByGroupId($groupId);
         if ($organization === null) {
             throw new OCSNotFoundException('Organization does not exist for the given group');
         }
@@ -479,6 +479,18 @@ class GroupsController extends AUserDataOCSController {
 
 		try {
 			$this->db->beginTransaction();
+			
+			// 1. Find the organization linked to this Nextcloud group.
+            $organization = $this->organizationMapper->findByGroupId($groupId);
+
+            // Only proceed if an organization is found.
+            if ($organization !== null) {
+                // 2. Find subscription for this organization.
+                $subscription = $this->subscriptionMapper->findByOrganizationId($organization->getId());
+
+				// 3. For subscription, get its plan.
+				$plan = $this->planMapper->find($subscription->getPlanId());
+            }
 
 			// Check it exists
 			if (!$this->groupManager->groupExists($groupId)) {
@@ -486,6 +498,11 @@ class GroupsController extends AUserDataOCSController {
 			} elseif ($groupId === 'admin' || !$this->groupManager->get($groupId)->delete()) {
 				// Cannot delete admin group
 				throw new OCSException('', 102);
+			}
+
+			// 4. If the plan exists and is NOT public, it's a custom plan that must be deleted.
+			if ($plan !== null && !$plan->getIsPublic()) {
+				$this->planMapper->delete($plan);
 			}
 
 			$this->db->commit();

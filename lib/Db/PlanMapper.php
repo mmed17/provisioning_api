@@ -4,11 +4,13 @@ declare(strict_types=1);
 namespace OCA\Provisioning_API\Db;
 
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Db\Entity;
 use OCP\AppFramework\Db\QBMapper;
 use OCP\IDBConnection;
+use Psr\Log\LoggerInterface;
 
 class PlanMapper extends QBMapper {
-    public function __construct(IDBConnection $db) {
+    public function __construct(IDBConnection $db, private LoggerInterface $logger) {
         parent::__construct($db, 'plans', Plan::class);
     }
 
@@ -38,6 +40,42 @@ class PlanMapper extends QBMapper {
         $plan->setIsPublic($isPublic);
 
         return $this->insert($plan);
+    }
+
+    
+    /**
+     * This custom insert method overrides the default QBMapper's insert.
+     * It manually builds the query to ensure the 'is_public' boolean is handled correctly.
+     *
+     * @param Plan $plan The entity to insert.
+     * @return Plan The entity with the new ID set.
+     */
+    public function insert(Entity $plan): Plan {
+        // Ensure we are only handling Plan objects.
+        if (!$plan instanceof Plan) {
+            throw new \InvalidArgumentException('Entity must be an instance of Plan');
+        }
+
+        $qb = $this->db->getQueryBuilder();
+        
+        $qb->insert($this->getTableName())
+           ->values([
+               'name' => $qb->createNamedParameter($plan->getName()),
+               'max_members' => $qb->createNamedParameter($plan->getMaxMembers(), \PDO::PARAM_INT),
+               'max_projects' => $qb->createNamedParameter($plan->getMaxProjects(), \PDO::PARAM_INT),
+               'shared_storage_per_project' => $qb->createNamedParameter($plan->getSharedStoragePerProject(), \PDO::PARAM_INT),
+               'private_storage_per_user' => $qb->createNamedParameter($plan->getPrivateStoragePerUser(), \PDO::PARAM_INT),
+               'price' => $qb->createNamedParameter($plan->getPrice()),
+               'currency' => $qb->createNamedParameter($plan->getCurrency()),
+               'is_public' => $qb->createNamedParameter($plan->getIsPublic(), \PDO::PARAM_BOOL)
+           ]);
+        
+        $qb->executeStatement();
+
+        // Set the ID on the original entity object and return it.
+        $plan->setId($qb->getLastInsertId());
+        
+        return $plan;
     }
 
     /**

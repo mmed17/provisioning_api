@@ -107,7 +107,7 @@ class SubscriptionService {
         string $changedByUserId
     ) {
         // 1. Find the organization and its current subscription.
-        $organization = $this->organizationMapper->findOrganizationByGroupId($groupId);
+        $organization = $this->organizationMapper->findByGroupId($groupId);
         if ($organization === null) {
             throw new OCSNotFoundException('Organization does not exist');
         }

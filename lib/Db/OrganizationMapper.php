@@ -19,7 +19,7 @@ class OrganizationMapper extends QBMapper {
      * @param string $groupId The Nextcloud group ID.
      * @return Organization|null
      */
-    public function findOrganizationByGroupId(string $groupId): ?Organization {
+    public function findByGroupId(string $groupId): ?Organization {
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
            ->from($this->getTableName())

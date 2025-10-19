@@ -5,6 +5,7 @@ namespace OCA\Provisioning_API\Db;
 
 use OCP\AppFramework\Db\Entity;
 use OCP\DB\Types;
+use OCP\IDBConnection;
 
 /**
  * @method string getName()
@@ -18,45 +19,46 @@ use OCP\DB\Types;
  * @method int getPrivateStoragePerUser()
  * @method void setPrivateStoragePerUser(int $storage)
  * @method float|null getPrice()
- * @method void setPrice(?float $price)
+ * @method void setPrice(float $price)
  * @method string|null getCurrency()
- * @method void setCurrency(?string $currency)
+ * @method void setCurrency(string $currency)
  * @method bool getIsPublic()
+ * @method void setIsPublic(bool $isPublic)
  */
 class Plan extends Entity implements \JsonSerializable {
     /** @var string The public name of the plan. */
-    protected $name;
+    protected string|null $name = null;
 
     /** @var int The number of allowed projects (Group Folders). */
-    protected $maxProjects;
+    protected int|null $maxProjects = null;
 
     /** @var int The total number of users allowed in the organization. */
-    protected $maxMembers;
+    protected int|null $maxMembers = null;
     
     /** @var int The storage limit for each shared project in bytes. */
-    protected $sharedStoragePerProject;
+    protected int|null $sharedStoragePerProject = null;
 
     /** @var int The storage limit for each private user in bytes. */
-    protected $privateStoragePerUser;
-
-    /** @var bool Whether to show this plan on the public pricing page. */
-    protected $isPublic = false;
+    protected int|null $privateStoragePerUser = null;
 
     /** @var float|null The price of the plan. */
-    protected $price = null;
+    protected float|null $price = null;
 
-    /** @var string|null The currency code for the plan price. */
-    protected $currency = 'EUR';
+    /** @var string The currency code for the plan price. */
+    protected string $currency = 'EUR';
     
+    /** @var bool Whether to show this plan on the public pricing page. */
+    protected bool $isPublic = false;
+
     public function __construct() {
         $this->addType('name', Types::STRING);
         $this->addType('max_projects', Types::INTEGER);
         $this->addType('max_members', Types::INTEGER);
         $this->addType('shared_storage_per_project', Types::INTEGER);
         $this->addType('private_storage_per_user', Types::INTEGER);
-        $this->addType('is_public', Types::BOOLEAN);
         $this->addType('price', Types::FLOAT, true);
         $this->addType('currency', Types::STRING, true);
+        $this->addType('is_public', Types::BOOLEAN);
     }
 
     public function jsonSerialize(): array {
