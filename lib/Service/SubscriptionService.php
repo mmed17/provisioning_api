@@ -140,12 +140,6 @@ class SubscriptionService {
         );
         $subscription->setPlanId($finalPlanId);
 
-        // =======================================================================
-        // STATUS HANDLING & HISTORY
-        // =======================================================================
-
-        $now = new DateTime();
-
         // 4. Handle changes in the subscription's status.
         $now = new DateTime();
         $originalStatus = $previousSubscription->getStatus();
@@ -192,6 +186,12 @@ class SubscriptionService {
             $previousSubscription,
             $changedByUserId,
         );
+
+        // 8. CHECK if we need to delete the old plan.
+        $originalPlan = $this->planMapper->find($previousSubscription->getPlanId());
+        if ($originalPlan !== null && !$originalPlan->getIsPublic() && $originalPlan->getId() !== $finalPlanId) {
+            $this->planMapper->delete($originalPlan);
+        }
 
         return $updatedSubscription;
     }

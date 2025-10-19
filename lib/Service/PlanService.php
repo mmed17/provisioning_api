@@ -35,13 +35,6 @@ class PlanService {
         // SCENARIO 1: Switching from one public plan to another (e.g., Free -> Gold).
         // If the newly selected plan is a public one, we just use it and ignore any custom values.
         if ($newPlan !== null && $newPlan->getIsPublic()) {
-
-            // Before we switch, check if the original plan was a custom one.
-            // If it was, we must delete it to prevent it from being orphaned.
-            if ($originalPlan !== null && !$originalPlan->getIsPublic()) {
-                $this->planMapper->delete($originalPlan);
-            }
-
             return $newPlan->getId();
         }
 
