@@ -124,6 +124,17 @@ ALTER TABLE `oc_subscriptions_history`
     ADD CONSTRAINT `chk_history_new_status` 
         CHECK (`new_status` IN ('active', 'paused', 'expired', 'cancelled'));
 
+-- 3. Modify the oc_subscriptions to register cancel and pause datetime
+ALTER TABLE `oc_subscriptions`
+    ADD COLUMN `paused_at` DATETIME DEFAULT NULL COMMENT 'Timestamp when the subscription was paused.' AFTER `ended_at`,
+    ADD COLUMN `cancelled_at` DATETIME DEFAULT NULL COMMENT 'Timestamp when the subscription was cancelled.' AFTER `paused_at`;
+
+ALTER TABLE `oc_subscriptions_history`
+    ADD COLUMN `previous_paused_at` DATETIME DEFAULT NULL COMMENT 'The paused_at timestamp before the change.' AFTER `previous_ended_at`,
+    ADD COLUMN `previous_cancelled_at` DATETIME DEFAULT NULL COMMENT 'The cancelled_at timestamp before the change.' AFTER `previous_paused_at`,
+    ADD COLUMN `new_paused_at` DATETIME DEFAULT NULL COMMENT 'The paused_at timestamp after the change.' AFTER `new_ended_at`,
+    ADD COLUMN `new_cancelled_at` DATETIME DEFAULT NULL COMMENT 'The cancelled_at timestamp after the change.' AFTER `new_paused_at`;
+
 
 -- DEFAULT PLANS:
 -- Values remain the same as they align with the storage logic.

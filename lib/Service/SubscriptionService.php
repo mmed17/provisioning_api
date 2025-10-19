@@ -11,6 +11,8 @@ use OCP\AppFramework\Db\DoesNotExistException;
 use OCA\Provisioning_API\Db\Subscription;
 use OCA\Provisioning_API\Db\SubscriptionMapper;
 use OCA\Provisioning_API\Db\PlanMapper;
+use OCA\Provisioning_API\Db\SubscriptionHistory;
+use OCA\Provisioning_API\Db\SubscriptionHistoryMapper;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 
 class SubscriptionService {
@@ -19,6 +21,7 @@ class SubscriptionService {
     private PlanMapper $planMapper;
     private OrganizationMapper $organizationMapper;
     private PlanService $planService;
+    private SubscriptionHistoryMapper $SubscriptionHistoryMapper;
 
     public function __construct(
         IDBConnection $db,
@@ -26,12 +29,14 @@ class SubscriptionService {
         PlanMapper $planMapper,
         OrganizationMapper $organizationMapper,
         PlanService $planService,
+        SubscriptionHistoryMapper $SubscriptionHistoryMapper
     ) {
         $this->db = $db;
         $this->subscriptionMapper = $subscriptionMapper;
         $this->planMapper = $planMapper;
         $this->organizationMapper = $organizationMapper;
         $this->planService = $planService;
+        $this->SubscriptionHistoryMapper = $SubscriptionHistoryMapper;
     }
 
     /**
@@ -90,7 +95,7 @@ class SubscriptionService {
     public function updateSubscription(
         string $groupId,
         string $displayName,
-        int $newPlanId, // The plan ID selected in the frontend
+        int $newPlanId,
         int $maxMembers,
         int $maxProjects,
         int $sharedStoragePerProject,
@@ -113,7 +118,7 @@ class SubscriptionService {
         }
 
         // Keep a copy of the original state for the history log.
-        $originalSubscription = clone $subscription;
+        $previousSubscription = clone $subscription;
 
         // 2. Update the organization's display name if it has changed.
         if ($organization->getName() !== $displayName) {
@@ -121,11 +126,10 @@ class SubscriptionService {
             $this->organizationMapper->update($organization);
         }
 
-        // 3. Handle the plan logic: this now correctly handles all update scenarios.
-        // UPDATED: Pass both the new and original plan IDs for smarter logic.
+        // 3. Handle the plan logic to get the final plan ID.
         $finalPlanId = $this->planService->handlePlanUpdate(
             $newPlanId,
-            $originalSubscription->getPlanId(),
+            $previousSubscription->getPlanId(),
             $maxMembers,
             $maxProjects,
             $sharedStoragePerProject,
@@ -136,24 +140,58 @@ class SubscriptionService {
         );
         $subscription->setPlanId($finalPlanId);
 
-        // 4. Update the subscription's status and end date.
-        $subscription->setStatus($status);
+        // =======================================================================
+        // STATUS HANDLING & HISTORY
+        // =======================================================================
+
+        $now = new DateTime();
+
+        // 4. Handle changes in the subscription's status.
+        $now = new DateTime();
+        $originalStatus = $previousSubscription->getStatus();
+        $newStatus = $status;
+
+        // Only perform actions if the status has actually changed.
+        if ($originalStatus !== $newStatus) {
+            switch ($newStatus) {
+                case 'paused':
+                    $subscription->setStatus('paused');
+                    $subscription->setPausedAt($now->format('Y-m-d H:i:s'));
+                    $subscription->setCancelledAt(null); // Reset cancel date
+                    break;
+
+                case 'cancelled':
+                    $subscription->setStatus('cancelled');
+                    $subscription->setCancelledAt($now->format('Y-m-d H:i:s'));
+                    $subscription->setPausedAt(null); // Reset paused date
+                    break;
+
+                case 'active':
+                    $subscription->setStatus('active');
+                    $subscription->setPausedAt(null); // Reset paused date
+                    $subscription->setCancelledAt(null); // Reset cancellation date
+                    break;
+            }
+        }
+
+        // 5. Handle extending the subscription's duration.
         if ($extendDuration !== null) {
-            $currentEndedAt = $subscription->getEndedAt() ? new DateTime($subscription->getEndedAt()) : new DateTime();
+            $currentEndedAt = 
+                $subscription->getEndedAt() ? new DateTime($subscription->getEndedAt()) : new DateTime();
+            
             $newEndedAt = (clone $currentEndedAt)->modify('+' . $extendDuration);
             $subscription->setEndedAt($newEndedAt->format('Y-m-d H:i:s'));
         }
 
-        // 5. Save the changes to the subscription.
+        // 6. Save the final changes to the subscription in the database.
         $updatedSubscription = $this->subscriptionMapper->update($subscription);
 
-        // 6. Create a detailed history log of the changes.
-        // $this->historyService->createLog(
-        //     $originalSubscription,
-        //     $updatedSubscription,
-        //     $changedByUserId,
-        //     'Subscription details updated.'
-        // );
+        // 7. Create a detailed history log of the changes using the new mapper function.
+        $this->SubscriptionHistoryMapper->createLog(
+            $updatedSubscription,
+            $previousSubscription,
+            $changedByUserId,
+        );
 
         return $updatedSubscription;
     }
