@@ -135,6 +135,26 @@ ALTER TABLE `oc_subscriptions_history`
     ADD COLUMN `new_paused_at` DATETIME DEFAULT NULL COMMENT 'The paused_at timestamp after the change.' AFTER `new_ended_at`,
     ADD COLUMN `new_cancelled_at` DATETIME DEFAULT NULL COMMENT 'The cancelled_at timestamp after the change.' AFTER `new_paused_at`;
 
+-- 4. fixing not being able to delete orphan entreprise plans because if subscriptions history
+-- First, drop the existing restrictive foreign key constraints.
+ALTER TABLE `oc_subscriptions_history` DROP FOREIGN KEY `fk_history_prev_plan_id`;
+ALTER TABLE `oc_subscriptions_history` DROP FOREIGN KEY `fk_history_new_plan_id`;
+
+-- allow new_plan_id to be null
+ALTER TABLE `oc_subscriptions_history` MODIFY COLUMN `new_plan_id` INT(11) DEFAULT NULL;
+
+-- Now, re-add them with the ON DELETE SET NULL rule.
+ALTER TABLE `oc_subscriptions_history`
+ADD CONSTRAINT `fk_history_prev_plan_id`
+    FOREIGN KEY (`previous_plan_id`)
+    REFERENCES `oc_plans` (`id`)
+    ON DELETE SET NULL;
+
+ALTER TABLE `oc_subscriptions_history`
+ADD CONSTRAINT `fk_history_new_plan_id`
+    FOREIGN KEY (`new_plan_id`)
+    REFERENCES `oc_plans` (`id`)
+    ON DELETE SET NULL;
 
 -- DEFAULT PLANS:
 -- Values remain the same as they align with the storage logic.
