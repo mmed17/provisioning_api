@@ -1,8 +1,3 @@
--- This schema has been revised based on the new requirements:
--- 1. ENUM constraints are added to status fields for data integrity.
--- 2. A new, more detailed history table explicitly tracks all subscription changes.
--- 3. The main subscriptions table is correctly named oc_subscriptions.
-
 -- Drop tables in reverse order to avoid foreign key constraint issues
 DROP TABLE IF EXISTS `oc_subscriptions_history`;
 DROP TABLE IF EXISTS `oc_subscriptions`;
@@ -12,13 +7,13 @@ DROP TABLE IF EXISTS `oc_organizations`;
 
 -- TABLE: oc_organizations
 -- Stores basic information about each organization.
-CREATE TABLE `oc_organizations` (
+CREATE TABLE IF NOT EXISTS `oc_organizations` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(255) NOT NULL,
   `nextcloud_group_id` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `orgs_group_id` (`nextcloud_group_id`),
-  CONSTRAINT `fk_org_group_id`
+  CONSTRAINT
     FOREIGN KEY (`nextcloud_group_id`)
     REFERENCES `oc_groups` (`gid`)
     ON DELETE CASCADE
@@ -28,13 +23,13 @@ CREATE TABLE `oc_organizations` (
 
 -- TABLE: oc_plans
 -- Defines the available subscription plans and their default limits.
-CREATE TABLE `oc_plans` (
+CREATE TABLE IF NOT EXISTS `oc_plans` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(255) NOT NULL,
     `max_projects` INT(11) NOT NULL,
     `max_members` INT(11) NOT NULL,
-    `shared_storage_per_project` BIGINT NOT NULL COMMENT 'Shared storage for each project in bytes.',
-    `private_storage_per_user` BIGINT NOT NULL COMMENT 'Private storage for each user in the organization in bytes.',
+    `shared_storage_per_project` BIGINT NOT NULL,
+    `private_storage_per_user` BIGINT NOT NULL,
     `price` FLOAT DEFAULT NULL,
     `currency` VARCHAR(3) DEFAULT 'EUR',
     `is_public` BOOLEAN NOT NULL DEFAULT FALSE,
@@ -46,20 +41,26 @@ CREATE TABLE `oc_plans` (
 -- TABLE: oc_subscriptions
 -- Tracks the current and past plans for each organization.
 -- UPDATED: Status is now an ENUM that includes 'paused' for more robust state management.
-CREATE TABLE `oc_subscriptions` (
+CREATE TABLE IF NOT EXISTS `oc_subscriptions` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `organization_id` INT(11) NOT NULL,
     `plan_id` INT(11) NOT NULL,
-    `status` ENUM('active', 'paused', 'expired', 'cancelled') NOT NULL DEFAULT 'active',
+    `status` VARCHAR(50) NOT NULL DEFAULT 'active',
     `started_at` DATETIME NOT NULL,
     `ended_at` DATETIME DEFAULT NULL COMMENT 'NULL indicates the subscription is currently active.',
+    `paused_at` DATETIME DEFAULT NULL,
+    `cancelled_at` DATETIME DEFAULT NULL,
+    
     PRIMARY KEY (`id`),
     INDEX `subs_org_id_idx` (`organization_id`),
-    CONSTRAINT `fk_subs_org_id` 
+    
+    CONSTRAINT `chk_subscriptions_status`
+        CHECK (`status` IN ('active', 'paused', 'expired', 'cancelled')),
+    CONSTRAINT
         FOREIGN KEY (`organization_id`) 
         REFERENCES `oc_organizations` (`id`) 
         ON DELETE CASCADE,
-    CONSTRAINT `fk_subs_plan_id` 
+    CONSTRAINT
         FOREIGN KEY (`plan_id`) 
         REFERENCES `oc_plans` (`id`) 
         ON DELETE RESTRICT
@@ -69,7 +70,8 @@ CREATE TABLE `oc_subscriptions` (
 -- TABLE: oc_subscriptions_history
 -- This table explicitly logs a complete snapshot of every change made to a subscription.
 -- It captures the state before and after the modification for a full audit trail.
-CREATE TABLE `oc_subscriptions_history` (
+-- TABLE: oc_subscriptions_history
+CREATE TABLE IF NOT EXISTS `oc_subscriptions_history` (
     `id` INT(11) NOT NULL AUTO_INCREMENT,
     `subscription_id` INT(11) NOT NULL,
     `changed_by_user_id` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -77,37 +79,120 @@ CREATE TABLE `oc_subscriptions_history` (
     
     -- State before the change
     `previous_plan_id` INT(11) DEFAULT NULL,
-    `previous_status` ENUM('active', 'paused', 'expired', 'cancelled') DEFAULT NULL,
+    `previous_status` VARCHAR(50) DEFAULT NULL,
     `previous_started_at` DATETIME DEFAULT NULL,
     `previous_ended_at` DATETIME DEFAULT NULL,
+    `previous_paused_at` DATETIME DEFAULT NULL,
+    `previous_cancelled_at` DATETIME DEFAULT NULL,
     
     -- State after the change
     `new_plan_id` INT(11) NOT NULL,
-    `new_status` ENUM('active', 'paused', 'expired', 'cancelled') NOT NULL,
+    `new_status` VARCHAR(50) NOT NULL,
     `new_started_at` DATETIME NOT NULL,
     `new_ended_at` DATETIME DEFAULT NULL,
+    `new_paused_at` DATETIME DEFAULT NULL,
+    `new_cancelled_at` DATETIME DEFAULT NULL,
     
     `notes` TEXT DEFAULT NULL COMMENT 'For any manual notes about the change.',
+    
     PRIMARY KEY (`id`),
     INDEX `history_sub_id_idx` (`subscription_id`),
-    CONSTRAINT `fk_history_sub_id`
+    
+    CONSTRAINT `chk_history_previous_status` 
+        CHECK (`previous_status` IS NULL OR `previous_status` IN ('active', 'paused', 'expired', 'cancelled')),
+    CONSTRAINT `chk_history_new_status` 
+        CHECK (`new_status` IN ('active', 'paused', 'expired', 'cancelled')),
+    CONSTRAINT 
         FOREIGN KEY (`subscription_id`)
         REFERENCES `oc_subscriptions` (`id`)
         ON DELETE CASCADE,
-    CONSTRAINT `fk_history_user_id`
+    CONSTRAINT 
         FOREIGN KEY (`changed_by_user_id`)
         REFERENCES `oc_users` (`uid`)
         ON DELETE RESTRICT,
-    CONSTRAINT `fk_history_prev_plan_id`
+    CONSTRAINT 
         FOREIGN KEY (`previous_plan_id`)
         REFERENCES `oc_plans` (`id`)
         ON DELETE SET NULL,
-    CONSTRAINT `fk_history_new_plan_id`
+    CONSTRAINT
         FOREIGN KEY (`new_plan_id`)
         REFERENCES `oc_plans` (`id`)
         ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
+CREATE TABLE IF NOT EXISTS `oc_custom_projects` (
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) NOT NULL,
+  `number` VARCHAR(255) NOT NULL,
+  `type` INT(11) NOT NULL,
+  `address` VARCHAR(255) NOT NULL,
+  `description` TEXT NOT NULL,
+  `owner_id` VARCHAR(64) NOT NULL,
+  `circle_id` VARCHAR(31) NOT NULL,
+  `board_id` INT(11) NOT NULL,
+  `folder_id` BIGINT NOT NULL,
+  `folder_path` VARCHAR(4000) NOT NULL,
+  `status` INT(11) NOT NULL DEFAULT 1,
+  `organization_id` INT(11) DEFAULT NULL, -- Temporary it should become not null
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  
+  PRIMARY KEY (`id`),
+  INDEX `projectNameIndex` (`name`),
+  INDEX `projectOwnerIdIndex` (`owner_id`),
+  UNIQUE INDEX `projectCircleIdUnique` (`circle_id`),
+  CONSTRAINT `fk_projects_owner`
+    FOREIGN KEY (`owner_id`)
+    REFERENCES `oc_users` (`uid`)
+    ON DELETE RESTRICT,
+  CONSTRAINT `fk_projects_circle`
+    FOREIGN KEY (`circle_id`)
+    REFERENCES `oc_circles_circle` (`unique_id`)
+    ON DELETE RESTRICT,
+  CONSTRAINT `fk_projects_board`
+    FOREIGN KEY (`board_id`)
+    REFERENCES `oc_deck_boards` (`id`)
+    ON DELETE RESTRICT,
+  CONSTRAINT `fk_projects_folder`
+    FOREIGN KEY (`folder_id`)
+    REFERENCES `oc_filecache` (`fileid`)
+    ON DELETE RESTRICT,
+  CONSTRAINT `fk_projects_organization`
+    FOREIGN KEY (`organization_id`)
+    REFERENCES `oc_organizations` (`id`)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+ALTER TABLE `oc_users`
+    ADD COLUMN `organization_id` INT(11) NULL DEFAULT NULL AFTER `uid_lower`;
+
+ALTER TABLE `oc_users`
+    ADD CONSTRAINT `fk_user_organization`
+    FOREIGN KEY (`organization_id`)
+    REFERENCES `oc_organizations` (`id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE;
+
+ALTER TABLE `oc_users` 
+    ADD INDEX `user_org_id_idx` (`organization_id`);
+
+
+CREATE TABLE `oc_proj_private_folders` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `project_id` INT(11) NOT NULL,
+    `user_id` VARCHAR(64) NOT NULL,
+    `folder_id` INT(11) NOT NULL,
+    `folder_path` VARCHAR(4000) NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `proj_user_unique` (`project_id`, `user_id`) 
+);
+
+--###############################################################
+--###                                                         ###--
+--### THE FOLLOWING INSTRUCTIONS SHOULD BE EXECUTED WITH CARE ###--
+--###                                                         ###--
+--###############################################################--
 
 -- 1. Modify the oc_subscriptions table
 ALTER TABLE `oc_subscriptions` 
@@ -143,7 +228,37 @@ ALTER TABLE `oc_subscriptions_history` DROP FOREIGN KEY `fk_history_new_plan_id`
 -- allow new_plan_id to be null
 ALTER TABLE `oc_subscriptions_history` MODIFY COLUMN `new_plan_id` INT(11) DEFAULT NULL;
 
--- Now, re-add them with the ON DELETE SET NULL rule.
+
+-- Removing foreign key constraint name conflict with circles
+ALTER TABLE `oc_subscriptions` DROP FOREIGN KEY `fk_subs_plan_id`;
+ALTER TABLE `oc_subscriptions_history` DROP FOREIGN KEY `fk_history_new_plan_id`;
+ALTER TABLE `oc_subscriptions_history` DROP FOREIGN KEY `fk_history_prev_plan_id`;
+ALTER TABLE `oc_subscriptions_history` DROP FOREIGN KEY `fk_history_user_id`;
+
+ALTER TABLE `oc_subscriptions`
+ADD CONSTRAINT 
+    FOREIGN KEY (`plan_id`)
+    REFERENCES `oc_plans` (`id`)
+    ON DELETE RESTRICT;
+
+ALTER TABLE `oc_subscriptions_history`
+ADD CONSTRAINT 
+    FOREIGN KEY (`new_plan_id`)
+    REFERENCES `oc_plans` (`id`)
+    ON DELETE RESTRICT;
+
+ALTER TABLE `oc_subscriptions_history`
+ADD CONSTRAINT
+    FOREIGN KEY (`previous_plan_id`)
+    REFERENCES `oc_plans` (`id`)
+    ON DELETE SET NULL;
+
+ALTER TABLE `oc_subscriptions_history`
+ADD CONSTRAINT 
+    FOREIGN KEY (`changed_by_user_id`)
+    REFERENCES `oc_users` (`uid`)
+    ON DELETE RESTRICT;
+
 ALTER TABLE `oc_subscriptions_history`
 ADD CONSTRAINT `fk_history_prev_plan_id`
     FOREIGN KEY (`previous_plan_id`)

@@ -8,14 +8,10 @@ declare(strict_types=1);
  */
 namespace OCA\Provisioning_API\Controller;
 
-use DateTime;
-use DateTimeZone;
 use Exception;
-use OCA\Provisioning_API\ResponseDefinitions;
 use OCA\Settings\Settings\Admin\Sharing;
 use OCA\Settings\Settings\Admin\Users;
 use OCP\Accounts\IAccountManager;
-use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
@@ -43,6 +39,7 @@ use OCP\IDBConnection;
 use OCA\Provisioning_API\Service\SubscriptionService;
 use OCA\Provisioning_API\Service\OrganizationService;
 use OCA\Provisioning_API\Service\PlanService;
+use OCP\EventDispatcher\IEventDispatcher;
 
 /**
  * @psalm-import-type Provisioning_APIGroupDetails from ResponseDefinitions
@@ -70,6 +67,7 @@ class GroupsController extends AUserDataOCSController {
 		private PlanMapper $planMapper,
 		private FolderManager $folderManager,
 		private IDBConnection $db,
+		private IEventDispatcher $eventDispatcher
 	) {
 		parent::__construct($appName,
 			$request,
@@ -294,7 +292,7 @@ class GroupsController extends AUserDataOCSController {
     }
 
 	/**
-	 * Create a new group
+	 * Create a new group with its subscription details
 	 *
 	 * @param string $groupid ID of the group
 	 * @param string $displayname Display name of the group
@@ -345,7 +343,7 @@ class GroupsController extends AUserDataOCSController {
 			if ($organization === null) {
 				throw new OCSException('Failed to create organization', 104);
 			}
-
+			
 			$subscription = $this->subscriptionService->createSubscription(
 				$organization->getId(),
 				$validity,

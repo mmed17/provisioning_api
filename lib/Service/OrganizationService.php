@@ -27,7 +27,7 @@ class OrganizationService {
     /**
      * Creates a new organization with the given Nextcloud group ID.
      * @param string $nextcloudGroupId
-     * @return DataResponse
+     * @return Organization
      */
     public function createOrganization(string $nextcloudGroupId, string $name): Organization {
         $organization = new Organization();

@@ -15,7 +15,8 @@ use OC\Authentication\Token\RemoteWipe;
 use OC\Group\Group;
 use OC\KnownUser\KnownUserService;
 use OC\User\Backend;
-use OCA\Provisioning_API\ResponseDefinitions;
+use OCA\Provisioning_API\Db\OrganizationMapper;
+use OCA\Provisioning_API\Db\UserMapper;
 use OCA\Settings\Mailer\NewUserMailHelper;
 use OCA\Settings\Settings\Admin\Users;
 use OCP\Accounts\IAccountManager;
@@ -46,7 +47,6 @@ use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\L10N\IFactory;
-use OCP\Security\Events\GenerateSecurePasswordEvent;
 use OCP\Security\ISecureRandom;
 use OCP\User\Backend\ISetDisplayNameBackend;
 use OCP\Util;
@@ -79,6 +79,8 @@ class UsersController extends AUserDataOCSController {
 		private KnownUserService $knownUserService,
 		private IEventDispatcher $eventDispatcher,
 		private IPhoneNumberUtil $phoneNumberUtil,
+		private OrganizationMapper $organizationMapper,
+		private UserMapper $userMapper
 	) {
 		parent::__construct(
 			$appName,
@@ -450,195 +452,152 @@ class UsersController extends AUserDataOCSController {
 	 * 200: User added successfully
 	 */
 	#[PasswordConfirmationRequired]
-	#[NoAdminRequired]
-	public function addUser(
-		string $userid,
-		string $password = '',
-		string $displayName = '',
-		string $email = '',
-		array $groups = [],
-		array $subadmin = [],
-		string $quota = '',
-		string $language = '',
-		?string $manager = null,
-	): DataResponse {
-		$user = $this->userSession->getUser();
-		$isAdmin = $this->groupManager->isAdmin($user->getUID());
-		$isDelegatedAdmin = $this->groupManager->isDelegatedAdmin($user->getUID());
-		$subAdminManager = $this->groupManager->getSubAdmin();
+    #[NoAdminRequired]
+    public function addUser(
+        string $userid,
+        string $password,     // [MODIFIED] - Now required, no default
+        string $displayName,  // [MODIFIED] - Now required, no default
+        string $email,        // [MODIFIED] - Now required, no default
+        string $group         // [MODIFIED] - Now a required string, not array
+    ): DataResponse {
+        $user = $this->userSession->getUser();
+        $isAdmin = $this->groupManager->isAdmin($user->getUID());
+        $isDelegatedAdmin = $this->groupManager->isDelegatedAdmin($user->getUID());
+        $subAdminManager = $this->groupManager->getSubAdmin();
 
-		if (empty($userid) && $this->config->getAppValue('core', 'newUser.generateUserID', 'no') === 'yes') {
-			$userid = $this->createNewUserId();
-		}
+        if (empty($userid) && $this->config->getAppValue('core', 'newUser.generateUserID', 'no') === 'yes') {
+            $userid = $this->createNewUserId();
+        }
 
-		if ($this->userManager->userExists($userid)) {
-			$this->logger->error('Failed addUser attempt: User already exists.', ['app' => 'ocs_api']);
-			throw new OCSException($this->l10n->t('User already exists'), 102);
-		}
+        if ($this->userManager->userExists($userid)) {
+            $this->logger->error('Failed addUser attempt: User already exists.', ['app' => 'ocs_api']);
+            throw new OCSException($this->l10n->t('User already exists'), 102);
+        }
 
-		if ($groups !== []) {
-			foreach ($groups as $group) {
-				if (!$this->groupManager->groupExists($group)) {
-					throw new OCSException($this->l10n->t('Group %1$s does not exist', [$group]), 104);
-				}
-				if (!$isAdmin && !($isDelegatedAdmin && $group !== 'admin') && !$subAdminManager->isSubAdminOfGroup($user, $this->groupManager->get($group))) {
-					throw new OCSException($this->l10n->t('Insufficient privileges for group %1$s', [$group]), 105);
-				}
+        // [MODIFIED] - Start of mandatory field checks
+        if (empty($password)) {
+            throw new OCSException($this->l10n->t('A password is required'), 111);
+        }
+        if (empty($displayName)) {
+            throw new OCSException($this->l10n->t('A display name is required'), 112);
+        }
+        if (empty($email)) {
+            throw new OCSException($this->l10n->t('An email address is required'), 113);
+        }
+        if (empty($group)) {
+            throw new OCSException($this->l10n->t('A group is required'), 114);
+        }
+        // [MODIFIED] - End of mandatory field checks
+
+        // [MODIFIED] - Group logic now handles a single string, not an array
+        $groupObject = $this->groupManager->get($group);
+        if ($groupObject === null) {
+            throw new OCSException($this->l10n->t('Group %1$s does not exist', [$group]), 104);
+        }
+        if (!$isAdmin && !($isDelegatedAdmin && $group !== 'admin') && !$subAdminManager->isSubAdminOfGroup($user, $groupObject)) {
+            throw new OCSException($this->l10n->t('Insufficient privileges for group %1$s', [$group]), 105);
+        }
+        
+        // [REMOVED] - Entire $subadmin logic block removed
+
+        $generatePasswordResetToken = false;
+        if (strlen($password) > IUserManager::MAX_PASSWORD_LENGTH) {
+            throw new OCSException($this->l10n->t('Invalid password value'), 101);
+        }
+        
+        // [REMOVED] - Entire block for 'if ($password === '')' removed,
+        // as password is now mandatory.
+        
+        // [REMOVED] - 'if ($email === '' && ...)' check removed,
+        // as email is now mandatory.
+
+        try {
+            $newUser = $this->userManager->createUser($userid, $password);
+            $this->logger->info('Successful addUser call with userid: ' . $userid, ['app' => 'ocs_api']);
+
+			$newOrganization = $this->organizationMapper->findByGroupId($group);
+			if($newOrganization == null) {
+				throw new OCSException($this->l10n->t('Organiztion not found.'), 101);
 			}
-		} else {
-			if (!$isAdmin && !$isDelegatedAdmin) {
-				throw new OCSException($this->l10n->t('No group specified (required for sub-admins)'), 106);
-			}
-		}
+			
+			$this->userMapper->addOrganizationToUser($userid, $newOrganization->getId());
+            $groupObject->addUser($newUser);
+            $this->logger->info('Added userid ' . $userid . ' to group ' . $group, ['app' => 'ocs_api']);
+            
+            // [REMOVED] - 'foreach ($subadminGroups...)' loop removed
 
-		$subadminGroups = [];
-		if ($subadmin !== []) {
-			foreach ($subadmin as $groupid) {
-				$group = $this->groupManager->get($groupid);
-				// Check if group exists
-				if ($group === null) {
-					throw new OCSException($this->l10n->t('Sub-admin group does not exist'), 109);
-				}
-				// Check if trying to make subadmin of admin group
-				if ($group->getGID() === 'admin') {
-					throw new OCSException($this->l10n->t('Cannot create sub-admins for admin group'), 103);
-				}
-				// Check if has permission to promote subadmins
-				if (!$subAdminManager->isSubAdminOfGroup($user, $group) && !$isAdmin && !$isDelegatedAdmin) {
-					throw new OCSForbiddenException($this->l10n->t('No permissions to promote sub-admins'));
-				}
-				$subadminGroups[] = $group;
-			}
-		}
+            // [MODIFIED] - Set displayName (now unconditional)
+            try {
+                $this->editUser($userid, self::USER_FIELD_DISPLAYNAME, $displayName);
+            } catch (OCSException $e) {
+                if ($newUser instanceof IUser) {
+                    $newUser->delete();
+                }
+                throw $e;
+            }
+            
+            // [REMOVED] - $quota logic removed
+            // [REMOVED] - $language logic removed
+            // [REMOVED] - $manager logic removed
 
-		$generatePasswordResetToken = false;
-		if (strlen($password) > IUserManager::MAX_PASSWORD_LENGTH) {
-			throw new OCSException($this->l10n->t('Invalid password value'), 101);
-		}
-		if ($password === '') {
-			if ($email === '') {
-				throw new OCSException($this->l10n->t('An email address is required, to send a password link to the user.'), 108);
-			}
+            // [MODIFIED] - Set email and send mail (now unconditional)
+            $newUser->setEMailAddress($email);
+            if ($this->config->getAppValue('core', 'newUser.sendEmail', 'yes') === 'yes') {
+                try {
+                    // $generatePasswordResetToken is false, so this sends a
+                    // "welcome" email, not a "set password" email. This is correct.
+                    $emailTemplate = $this->newUserMailHelper->generateTemplate($newUser, $generatePasswordResetToken);
+                    $this->newUserMailHelper->sendMail($newUser, $emailTemplate);
+                } catch (\Exception $e) {
+                    $this->logger->error(
+                        "Unable to send the invitation mail to $email",
+                        [
+                            'app' => 'ocs_api',
+                            'exception' => $e,
+                        ]
+                    );
+                }
+            }
 
-			$passwordEvent = new GenerateSecurePasswordEvent();
-			$this->eventDispatcher->dispatchTyped($passwordEvent);
-
-			$password = $passwordEvent->getPassword();
-			if ($password === null) {
-				// Fallback: ensure to pass password_policy in any case
-				$password = $this->secureRandom->generate(10)
-					. $this->secureRandom->generate(1, ISecureRandom::CHAR_UPPER)
-					. $this->secureRandom->generate(1, ISecureRandom::CHAR_LOWER)
-					. $this->secureRandom->generate(1, ISecureRandom::CHAR_DIGITS)
-					. $this->secureRandom->generate(1, ISecureRandom::CHAR_SYMBOLS);
-			}
-			$generatePasswordResetToken = true;
-		}
-
-		if ($email === '' && $this->config->getAppValue('core', 'newUser.requireEmail', 'no') === 'yes') {
-			throw new OCSException($this->l10n->t('Required email address was not provided'), 110);
-		}
-
-		try {
-			$newUser = $this->userManager->createUser($userid, $password);
-			$this->logger->info('Successful addUser call with userid: ' . $userid, ['app' => 'ocs_api']);
-
-			foreach ($groups as $group) {
-				$this->groupManager->get($group)->addUser($newUser);
-				$this->logger->info('Added userid ' . $userid . ' to group ' . $group, ['app' => 'ocs_api']);
-			}
-			foreach ($subadminGroups as $group) {
-				$subAdminManager->createSubAdmin($newUser, $group);
-			}
-
-			if ($displayName !== '') {
-				try {
-					$this->editUser($userid, self::USER_FIELD_DISPLAYNAME, $displayName);
-				} catch (OCSException $e) {
-					if ($newUser instanceof IUser) {
-						$newUser->delete();
-					}
-					throw $e;
-				}
-			}
-
-			if ($quota !== '') {
-				$this->editUser($userid, self::USER_FIELD_QUOTA, $quota);
-			}
-
-			if ($language !== '') {
-				$this->editUser($userid, self::USER_FIELD_LANGUAGE, $language);
-			}
-
-			/**
-			 * null -> nothing sent
-			 * '' -> unset manager
-			 * else -> set manager
-			 */
-			if ($manager !== null) {
-				$this->editUser($userid, self::USER_FIELD_MANAGER, $manager);
-			}
-
-			// Send new user mail only if a mail is set
-			if ($email !== '') {
-				$newUser->setEMailAddress($email);
-				if ($this->config->getAppValue('core', 'newUser.sendEmail', 'yes') === 'yes') {
-					try {
-						$emailTemplate = $this->newUserMailHelper->generateTemplate($newUser, $generatePasswordResetToken);
-						$this->newUserMailHelper->sendMail($newUser, $emailTemplate);
-					} catch (\Exception $e) {
-						// Mail could be failing hard or just be plain not configured
-						// Logging error as it is the hardest of the two
-						$this->logger->error(
-							"Unable to send the invitation mail to $email",
-							[
-								'app' => 'ocs_api',
-								'exception' => $e,
-							]
-						);
-					}
-				}
-			}
-
-			return new DataResponse(['id' => $userid]);
-		} catch (HintException $e) {
-			$this->logger->warning(
-				'Failed addUser attempt with hint exception.',
-				[
-					'app' => 'ocs_api',
-					'exception' => $e,
-				]
-			);
-			throw new OCSException($e->getHint(), 107);
-		} catch (OCSException $e) {
-			$this->logger->warning(
-				'Failed addUser attempt with ocs exception.',
-				[
-					'app' => 'ocs_api',
-					'exception' => $e,
-				]
-			);
-			throw $e;
-		} catch (InvalidArgumentException $e) {
-			$this->logger->error(
-				'Failed addUser attempt with invalid argument exception.',
-				[
-					'app' => 'ocs_api',
-					'exception' => $e,
-				]
-			);
-			throw new OCSException($e->getMessage(), 101);
-		} catch (\Exception $e) {
-			$this->logger->error(
-				'Failed addUser attempt with exception.',
-				[
-					'app' => 'ocs_api',
-					'exception' => $e
-				]
-			);
-			throw new OCSException('Bad request', 101);
-		}
-	}
+            return new DataResponse(['id' => $userid]);
+        } catch (HintException $e) {
+            $this->logger->warning(
+                'Failed addUser attempt with hint exception.',
+                [
+                    'app' => 'ocs_api',
+                    'exception' => $e,
+                ]
+            );
+            throw new OCSException($e->getHint(), 107);
+        } catch (OCSException $e) {
+            $this->logger->warning(
+                'Failed addUser attempt with ocs exception.',
+                [
+                    'app' => 'ocs_api',
+                    'exception' => $e,
+                ]
+            );
+            throw $e;
+        } catch (InvalidArgumentException $e) {
+            $this->logger->error(
+                'Failed addUser attempt with invalid argument exception.',
+                [
+                    'app' => 'ocs_api',
+                    'exception' => $e,
+                ]
+            );
+            throw new OCSException($e->getMessage(), 101);
+        } catch (\Exception $e) {
+            $this->logger->error(
+                'Failed addUser attempt with exception.',
+                [
+                    'app' => 'ocs_api',
+                    'exception' => $e
+                ]
+            );
+            throw new OCSException('Bad request', 101);
+        }
+    }
 
 	/**
 	 * @NoSubAdminRequired
@@ -1541,16 +1500,17 @@ class UsersController extends AUserDataOCSController {
 	 */
 	#[PasswordConfirmationRequired]
 	#[NoAdminRequired]
-	public function addToGroup(string $userId, string $groupid = ''): DataResponse {
-		if ($groupid === '') {
+	public function addToGroup(string $userId, string $groupid): DataResponse {
+		if (empty($groupid)) {
 			throw new OCSException('', 101);
 		}
-
+		
 		$group = $this->groupManager->get($groupid);
-		$targetUser = $this->userManager->get($userId);
 		if ($group === null) {
 			throw new OCSException('', 102);
 		}
+
+		$targetUser = $this->userManager->get($userId);
 		if ($targetUser === null) {
 			throw new OCSException('', 103);
 		}
@@ -1560,8 +1520,22 @@ class UsersController extends AUserDataOCSController {
 		$subAdminManager = $this->groupManager->getSubAdmin();
 		$isAdmin = $this->groupManager->isAdmin($loggedInUser->getUID());
 		$isDelegatedAdmin = $this->groupManager->isDelegatedAdmin($loggedInUser->getUID());
+
 		if (!$isAdmin && !($isDelegatedAdmin && $groupid !== 'admin') && !$subAdminManager->isSubAdminOfGroup($loggedInUser, $group)) {
 			throw new OCSException('', 104);
+		}
+
+		// [ADDED] Get old organization group and remove user from it
+		// then search for current group organization and add user to it.
+		$oldOrganization = $this->organizationMapper->findByUserId($userId);
+		if($oldOrganization) {
+			$oldGroup = $this->groupManager->get($oldOrganization->getNextcloudGroupId());
+			$oldGroup->removeUser($targetUser);
+		}
+
+		$newOrganization = $this->organizationMapper->findByGroupId($groupid);
+		if($newOrganization) {
+			$this->userMapper->addOrganizationToUser($userId, $newOrganization->getId());
 		}
 
 		// Add user to group
@@ -1633,6 +1607,8 @@ class UsersController extends AUserDataOCSController {
 
 		// Remove user from group
 		$group->removeUser($targetUser);
+		$this->userMapper->addOrganizationToUser($userId, null);
+
 		return new DataResponse();
 	}
 

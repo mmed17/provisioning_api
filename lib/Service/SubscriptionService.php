@@ -42,7 +42,15 @@ class SubscriptionService {
     /**
      * Retrieves the active subscription for a given organization ID.
      * @param int $organizationId
-     * @return DataResponse
+     * @param string $validity
+     * @param ?int $planId
+     * @param ?int $memberLimit
+     * @param ?int $projectsLimit
+     * @param ?int $sharedStoragePerProject
+     * @param ?int $privateStorage
+     * @param ?float $price
+     * @param ?string $currency
+     * @return Subscription
      */
     public function createSubscription(
         int $organizationId,
