@@ -74,6 +74,7 @@ class UsersController extends AUserDataOCSController {
 		ISubAdmin $subAdminManager,
 		IFactory $l10nFactory,
 		IRootFolder $rootFolder,
+		OrganizationMapper $organizationMapper,
 		private IURLGenerator $urlGenerator,
 		private LoggerInterface $logger,
 		private NewUserMailHelper $newUserMailHelper,
@@ -82,7 +83,6 @@ class UsersController extends AUserDataOCSController {
 		private KnownUserService $knownUserService,
 		private IEventDispatcher $eventDispatcher,
 		private IPhoneNumberUtil $phoneNumberUtil,
-		private OrganizationMapper $organizationMapper,
 		private UserMapper $userMapper,
 		private SubscriptionMapper $subscriptionMapper,
 		private PlanMapper $planMapper,
@@ -99,6 +99,7 @@ class UsersController extends AUserDataOCSController {
 			$subAdminManager,
 			$l10nFactory,
 			$rootFolder,
+			$organizationMapper
 		);
 
 		$this->l10n = $l10nFactory->get($appName);
@@ -1387,6 +1388,7 @@ class UsersController extends AUserDataOCSController {
 			// Self lookup or admin lookup
 			$groups = array_map(
 				function (Group $group) {
+					$organization = $this->organizationMapper->findByGroupId($group->getGID());
 					return [
 						'id' => $group->getGID(),
 						'displayname' => $group->getDisplayName(),
@@ -1394,6 +1396,7 @@ class UsersController extends AUserDataOCSController {
 						'disabled' => $group->countDisabled(),
 						'canAdd' => $group->canAddUser(),
 						'canRemove' => $group->canRemoveUser(),
+						'isOrganization' => !!$organization
 					];
 				},
 				array_values($this->groupManager->getUserGroups($targetUser)),
@@ -1416,7 +1419,9 @@ class UsersController extends AUserDataOCSController {
 				));
 				$groups = array_map(
 					function (string $gid) {
+						$organization = $this->organizationMapper->findByGroupId($group->getGID());
 						$group = $this->groupManager->get($gid);
+
 						return [
 							'id' => $group->getGID(),
 							'displayname' => $group->getDisplayName(),
@@ -1424,6 +1429,7 @@ class UsersController extends AUserDataOCSController {
 							'disabled' => $group->countDisabled(),
 							'canAdd' => $group->canAddUser(),
 							'canRemove' => $group->canRemoveUser(),
+							'isOrganization' => !!$organization
 						];
 					},
 					$gids,

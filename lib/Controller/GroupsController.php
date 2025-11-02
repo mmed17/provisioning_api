@@ -58,18 +58,19 @@ class GroupsController extends AUserDataOCSController {
 		ISubAdmin $subAdminManager,
 		IFactory $l10nFactory,
 		IRootFolder $rootFolder,
+		OrganizationMapper $organizationMapper,
 		private LoggerInterface $logger,
 		private SubscriptionService $subscriptionService,
-		private OrganizationService $organizationService,
 		private PlanService $planService,
 		private SubscriptionMapper $subscriptionMapper,
-		private OrganizationMapper $organizationMapper,
 		private PlanMapper $planMapper,
 		private FolderManager $folderManager,
+		private OrganizationService $organizationService,
 		private IDBConnection $db,
 		private IEventDispatcher $eventDispatcher
 	) {
-		parent::__construct($appName,
+		parent::__construct(
+			$appName,
 			$request,
 			$userManager,
 			$config,
@@ -79,6 +80,7 @@ class GroupsController extends AUserDataOCSController {
 			$subAdminManager,
 			$l10nFactory,
 			$rootFolder,
+			$organizationMapper
 		);
 	}
 
@@ -120,6 +122,7 @@ class GroupsController extends AUserDataOCSController {
 		$groups = $this->groupManager->search($search, $limit, $offset);
 		$groups = array_values(array_map(function ($group) {
 			/** @var IGroup $group */
+			$organization = $this->organizationMapper->findByGroupId($group->getGID());
 			return [
 				'id' => $group->getGID(),
 				'displayname' => $group->getDisplayName(),
@@ -127,6 +130,7 @@ class GroupsController extends AUserDataOCSController {
 				'disabled' => $group->countDisabled(),
 				'canAdd' => $group->canAddUser(),
 				'canRemove' => $group->canRemoveUser(),
+				'isOrganization' => !!$organization
 			];
 		}, $groups));
 

@@ -11,6 +11,7 @@ namespace OCA\Provisioning_API\Controller;
 use OC\Group\Manager as GroupManager;
 use OC\User\Backend;
 use OC\User\NoUserException;
+use OCA\Provisioning_API\Db\OrganizationMapper;
 use OCA\Provisioning_API\ResponseDefinitions;
 use OCP\Accounts\IAccountManager;
 use OCP\Accounts\PropertyDoesNotExistException;
@@ -59,6 +60,7 @@ abstract class AUserDataOCSController extends OCSController {
 		protected ISubAdmin $subAdminManager,
 		protected IFactory $l10nFactory,
 		protected IRootFolder $rootFolder,
+		protected OrganizationMapper $organizationMapper
 	) {
 		parent::__construct($appName, $request);
 	}
