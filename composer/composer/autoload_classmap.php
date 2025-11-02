@@ -27,8 +27,6 @@ return array(
     'OCA\\Provisioning_API\\Db\\SubscriptionHistoryMapper' => $baseDir . '/../lib/Db/SubscriptionHistoryMapper.php',
     'OCA\\Provisioning_API\\Db\\SubscriptionMapper' => $baseDir . '/../lib/Db/SubscriptionMapper.php',
     'OCA\\Provisioning_API\\Db\\UserMapper' => $baseDir . '/../lib/Db/UserMapper.php',
-    'OCA\\Provisioning_API\\Event\\SubscriptionCreatedEvent' => $baseDir . '/../lib/Event/SubscriptionCreatedEvent.php',
-    'OCA\\Provisioning_API\\Event\\SubscriptionCreatedEventListener' => $baseDir . '/../lib/Event/SubscriptionCreatedEventListener.php',
     'OCA\\Provisioning_API\\FederatedShareProviderFactory' => $baseDir . '/../lib/FederatedShareProviderFactory.php',
     'OCA\\Provisioning_API\\Listener\\UserDeletedListener' => $baseDir . '/../lib/Listener/UserDeletedListener.php',
     'OCA\\Provisioning_API\\Middleware\\Exceptions\\NotSubAdminException' => $baseDir . '/../lib/Middleware/Exceptions/NotSubAdminException.php',
@@ -37,6 +35,6 @@ return array(
     'OCA\\Provisioning_API\\ResponseDefinitions' => $baseDir . '/../lib/ResponseDefinitions.php',
     'OCA\\Provisioning_API\\Service\\OrganizationService' => $baseDir . '/../lib/Service/OrganizationService.php',
     'OCA\\Provisioning_API\\Service\\PlanService' => $baseDir . '/../lib/Service/PlanService.php',
-    'OCA\\Provisioning_API\\Service\\SubscriptionQuotaService' => $baseDir . '/../lib/Service/SubscriptionQuotaService.php',
     'OCA\\Provisioning_API\\Service\\SubscriptionService' => $baseDir . '/../lib/Service/SubscriptionService.php',
+    'OCA\\Provisioning_API\\Service\\UserGroupManagementService' => $baseDir . '/../lib/Service/UserGroupManagementService.php',
 );

@@ -42,8 +42,6 @@ class ComposerStaticInitProvisioning_API
         'OCA\\Provisioning_API\\Db\\SubscriptionHistoryMapper' => __DIR__ . '/..' . '/../lib/Db/SubscriptionHistoryMapper.php',
         'OCA\\Provisioning_API\\Db\\SubscriptionMapper' => __DIR__ . '/..' . '/../lib/Db/SubscriptionMapper.php',
         'OCA\\Provisioning_API\\Db\\UserMapper' => __DIR__ . '/..' . '/../lib/Db/UserMapper.php',
-        'OCA\\Provisioning_API\\Event\\SubscriptionCreatedEvent' => __DIR__ . '/..' . '/../lib/Event/SubscriptionCreatedEvent.php',
-        'OCA\\Provisioning_API\\Event\\SubscriptionCreatedEventListener' => __DIR__ . '/..' . '/../lib/Event/SubscriptionCreatedEventListener.php',
         'OCA\\Provisioning_API\\FederatedShareProviderFactory' => __DIR__ . '/..' . '/../lib/FederatedShareProviderFactory.php',
         'OCA\\Provisioning_API\\Listener\\UserDeletedListener' => __DIR__ . '/..' . '/../lib/Listener/UserDeletedListener.php',
         'OCA\\Provisioning_API\\Middleware\\Exceptions\\NotSubAdminException' => __DIR__ . '/..' . '/../lib/Middleware/Exceptions/NotSubAdminException.php',
@@ -52,8 +50,8 @@ class ComposerStaticInitProvisioning_API
         'OCA\\Provisioning_API\\ResponseDefinitions' => __DIR__ . '/..' . '/../lib/ResponseDefinitions.php',
         'OCA\\Provisioning_API\\Service\\OrganizationService' => __DIR__ . '/..' . '/../lib/Service/OrganizationService.php',
         'OCA\\Provisioning_API\\Service\\PlanService' => __DIR__ . '/..' . '/../lib/Service/PlanService.php',
-        'OCA\\Provisioning_API\\Service\\SubscriptionQuotaService' => __DIR__ . '/..' . '/../lib/Service/SubscriptionQuotaService.php',
         'OCA\\Provisioning_API\\Service\\SubscriptionService' => __DIR__ . '/..' . '/../lib/Service/SubscriptionService.php',
+        'OCA\\Provisioning_API\\Service\\UserGroupManagementService' => __DIR__ . '/..' . '/../lib/Service/UserGroupManagementService.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

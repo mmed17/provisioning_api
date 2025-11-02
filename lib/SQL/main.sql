@@ -273,12 +273,15 @@ ADD CONSTRAINT `fk_history_new_plan_id`
 
 -- DEFAULT PLANS:
 -- Values remain the same as they align with the storage logic.
-INSERT INTO `oc_plans` 
+-- This is the "profitable" plan structure
+INSERT INTO `oc_plans`
     (`name`, `max_projects`, `max_members`, `shared_storage_per_project`, `private_storage_per_user`, `price`, `currency`, `is_public`)
 VALUES 
-    -- Free Plan: 50 MB shared per project, 1 GB private per user
-    ('Free', 1, 1, 52428800, 1073741824, 0, 'EUR', TRUE),
-    -- Pro Plan: 100 MB shared per project, 5 GB private per user
-    ('Pro', 2, 5, 104857600, 5368709120, 10, 'EUR', TRUE),
-    -- Gold Plan: 1 GB shared per project, 20 GB private per user
-    ('Gold', 5, 20, 1073741824, 21474836480, 25, 'EUR', TRUE);
+    -- Free Plan: 1 Project, 1 Member, 20 MB Shared, 100 MB Private
+    ('Free', 1, 1, 20971520, 104857600, 0, 'EUR', TRUE),
+    -- Starter Plan: 3 Projects, 2 Members, 500 MB Shared, 300 MB Private
+    ('Starter', 3, 2, 524288000, 314572800, 12, 'EUR', TRUE),
+    -- Pro Plan: 10 Projects, 10 Members, 1 GB Shared, 500 MB Private
+    ('Pro', 10, 10, 1073741824, 524288000, 29, 'EUR', TRUE),
+    -- Business Plan: 20 Projects, 20 Members, 3 GB Shared, 1 GB Private
+    ('Business', 20, 20, 3221225472, 1073741824, 79, 'EUR', TRUE);

@@ -90,6 +90,5 @@ class Application extends App implements IBootstrap {
 		$context->registerCapability(Capabilities::class);
 	}
 
-	public function boot(IBootContext $context): void {
-	}
+	public function boot(IBootContext $context): void {}
 }

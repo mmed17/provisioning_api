@@ -16,7 +16,10 @@ use OC\Group\Group;
 use OC\KnownUser\KnownUserService;
 use OC\User\Backend;
 use OCA\Provisioning_API\Db\OrganizationMapper;
+use OCA\Provisioning_API\Db\PlanMapper;
+use OCA\Provisioning_API\Db\SubscriptionMapper;
 use OCA\Provisioning_API\Db\UserMapper;
+use OCA\Provisioning_API\Service\UserGroupManagementService;
 use OCA\Settings\Mailer\NewUserMailHelper;
 use OCA\Settings\Settings\Admin\Users;
 use OCP\Accounts\IAccountManager;
@@ -80,7 +83,10 @@ class UsersController extends AUserDataOCSController {
 		private IEventDispatcher $eventDispatcher,
 		private IPhoneNumberUtil $phoneNumberUtil,
 		private OrganizationMapper $organizationMapper,
-		private UserMapper $userMapper
+		private UserMapper $userMapper,
+		private SubscriptionMapper $subscriptionMapper,
+		private PlanMapper $planMapper,
+		private UserGroupManagementService $userGroupManagementService
 	) {
 		parent::__construct(
 			$appName,
@@ -494,6 +500,7 @@ class UsersController extends AUserDataOCSController {
         if ($groupObject === null) {
             throw new OCSException($this->l10n->t('Group %1$s does not exist', [$group]), 104);
         }
+
         if (!$isAdmin && !($isDelegatedAdmin && $group !== 'admin') && !$subAdminManager->isSubAdminOfGroup($user, $groupObject)) {
             throw new OCSException($this->l10n->t('Insufficient privileges for group %1$s', [$group]), 105);
         }
@@ -504,29 +511,13 @@ class UsersController extends AUserDataOCSController {
         if (strlen($password) > IUserManager::MAX_PASSWORD_LENGTH) {
             throw new OCSException($this->l10n->t('Invalid password value'), 101);
         }
-        
-        // [REMOVED] - Entire block for 'if ($password === '')' removed,
-        // as password is now mandatory.
-        
-        // [REMOVED] - 'if ($email === '' && ...)' check removed,
-        // as email is now mandatory.
 
         try {
             $newUser = $this->userManager->createUser($userid, $password);
             $this->logger->info('Successful addUser call with userid: ' . $userid, ['app' => 'ocs_api']);
 
-			$newOrganization = $this->organizationMapper->findByGroupId($group);
-			if($newOrganization == null) {
-				throw new OCSException($this->l10n->t('Organiztion not found.'), 101);
-			}
-			
-			$this->userMapper->addOrganizationToUser($userid, $newOrganization->getId());
-            $groupObject->addUser($newUser);
-            $this->logger->info('Added userid ' . $userid . ' to group ' . $group, ['app' => 'ocs_api']);
-            
             // [REMOVED] - 'foreach ($subadminGroups...)' loop removed
-
-            // [MODIFIED] - Set displayName (now unconditional)
+            // [MODIFIED] - Set displayName and Quota
             try {
                 $this->editUser($userid, self::USER_FIELD_DISPLAYNAME, $displayName);
             } catch (OCSException $e) {
@@ -559,7 +550,10 @@ class UsersController extends AUserDataOCSController {
                 }
             }
 
-            return new DataResponse(['id' => $userid]);
+			# Add user to group/organiation
+			$this->userGroupManagementService->handleUserGroupChange($newUser, $groupObject);
+			
+			return new DataResponse(['id' => $userid]);
         } catch (HintException $e) {
             $this->logger->warning(
                 'Failed addUser attempt with hint exception.',
@@ -1525,21 +1519,8 @@ class UsersController extends AUserDataOCSController {
 			throw new OCSException('', 104);
 		}
 
-		// [ADDED] Get old organization group and remove user from it
-		// then search for current group organization and add user to it.
-		$oldOrganization = $this->organizationMapper->findByUserId($userId);
-		if($oldOrganization) {
-			$oldGroup = $this->groupManager->get($oldOrganization->getNextcloudGroupId());
-			$oldGroup->removeUser($targetUser);
-		}
+		$this->userGroupManagementService->handleUserGroupChange($targetUser, $group);
 
-		$newOrganization = $this->organizationMapper->findByGroupId($groupid);
-		if($newOrganization) {
-			$this->userMapper->addOrganizationToUser($userId, $newOrganization->getId());
-		}
-
-		// Add user to group
-		$group->addUser($targetUser);
 		return new DataResponse();
 	}
 
@@ -1605,9 +1586,7 @@ class UsersController extends AUserDataOCSController {
 			}
 		}
 
-		// Remove user from group
-		$group->removeUser($targetUser);
-		$this->userMapper->addOrganizationToUser($userId, null);
+		$this->userGroupManagementService->handleUserGroupRemove($targetUser, $group);
 
 		return new DataResponse();
 	}

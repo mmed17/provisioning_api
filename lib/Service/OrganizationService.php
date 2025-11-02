@@ -5,23 +5,16 @@ namespace OCA\Provisioning_API\Service;
 
 use OCP\IDBConnection;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\AppFramework\Http\DataResponse;
 use OCA\Provisioning_API\Db\Organization;
 use OCA\Provisioning_API\Db\OrganizationMapper;
 
 class OrganizationService {
     private OrganizationMapper $organizationMapper;
-    private ITimeFactory $timeFactory;
-    private IDBConnection $db;
 
     public function __construct(
         OrganizationMapper $organizationMapper,
-        ITimeFactory $timeFactory,
-        IDBConnection $db
     ) {
         $this->organizationMapper = $organizationMapper;
-        $this->timeFactory = $timeFactory;
-        $this->db = $db;
     }
 
     /**
