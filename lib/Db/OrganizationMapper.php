@@ -150,6 +150,36 @@ class OrganizationMapper extends QBMapper {
         $count = $result->fetchOne();
         $result->closeCursor();
 
-        return (int)$count;
+        return (int) $count;
     }
+
+    /**
+     * Calcule le nombre total de projets pour une organisation spécifique,
+     * en se basant sur la colonne `oc_custom_projects.organization_id`.
+     *
+     * @param int $organizationId L'ID de l'organisation pour laquelle compter les projets.
+     * @return int Le nombre total de projets trouvés.
+     */
+    public function getProjectsCount(int $organizationId): int {
+        $qb = $this->db->getQueryBuilder();
+
+        $qb->selectAlias(
+                $qb->createFunction('COUNT(p.id)'),
+                'project_count'
+            )
+            ->from('custom_projects', 'p')
+            ->where(
+                $qb->expr()->eq(
+                    'p.organization_id',
+                    $qb->createNamedParameter($organizationId, \PDO::PARAM_INT)
+                )
+            );
+
+        $result = $qb->executeQuery();
+        $count = $result->fetchOne();
+        $result->closeCursor();
+
+        return (int) $count;
+    }
+
 }
