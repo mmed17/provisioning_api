@@ -12,6 +12,7 @@ use OC\Group\Manager as GroupManager;
 use OC\User\Backend;
 use OC\User\NoUserException;
 use OCA\Provisioning_API\Db\OrganizationMapper;
+use OCA\Provisioning_API\Group\OrganizationGroupManager;
 use OCA\Provisioning_API\ResponseDefinitions;
 use OCP\Accounts\IAccountManager;
 use OCP\Accounts\PropertyDoesNotExistException;
@@ -54,7 +55,7 @@ abstract class AUserDataOCSController extends OCSController {
 		IRequest $request,
 		protected IUserManager $userManager,
 		protected IConfig $config,
-		protected GroupManager $groupManager,
+		protected OrganizationGroupManager $groupManager,
 		protected IUserSession $userSession,
 		protected IAccountManager $accountManager,
 		protected ISubAdmin $subAdminManager,

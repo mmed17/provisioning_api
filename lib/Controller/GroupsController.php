@@ -35,6 +35,7 @@ use OCA\GroupFolders\Folder\FolderManager;
 use OCA\Provisioning_API\Db\OrganizationMapper;
 use OCA\Provisioning_API\Db\PlanMapper;
 use OCA\Provisioning_API\Db\SubscriptionMapper;
+use OCA\Provisioning_API\Group\OrganizationGroupManager;
 use OCP\IDBConnection;
 use OCA\Provisioning_API\Service\SubscriptionService;
 use OCA\Provisioning_API\Service\OrganizationService;
@@ -52,7 +53,7 @@ class GroupsController extends AUserDataOCSController {
 		IRequest $request,
 		IUserManager $userManager,
 		IConfig $config,
-		IGroupManager $groupManager,
+		OrganizationGroupManager $groupManager,
 		IUserSession $userSession,
 		IAccountManager $accountManager,
 		ISubAdmin $subAdminManager,
@@ -122,7 +123,6 @@ class GroupsController extends AUserDataOCSController {
 		$groups = $this->groupManager->search($search, $limit, $offset);
 		$groups = array_values(array_map(function ($group) {
 			/** @var IGroup $group */
-			$organization = $this->organizationMapper->findByGroupId($group->getGID());
 			return [
 				'id' => $group->getGID(),
 				'displayname' => $group->getDisplayName(),
@@ -130,7 +130,6 @@ class GroupsController extends AUserDataOCSController {
 				'disabled' => $group->countDisabled(),
 				'canAdd' => $group->canAddUser(),
 				'canRemove' => $group->canRemoveUser(),
-				'isOrganization' => !!$organization
 			];
 		}, $groups));
 

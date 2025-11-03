@@ -19,6 +19,7 @@ use OCA\Provisioning_API\Db\OrganizationMapper;
 use OCA\Provisioning_API\Db\PlanMapper;
 use OCA\Provisioning_API\Db\SubscriptionMapper;
 use OCA\Provisioning_API\Db\UserMapper;
+use OCA\Provisioning_API\Group\OrganizationGroupManager;
 use OCA\Provisioning_API\Service\UserGroupManagementService;
 use OCA\Settings\Mailer\NewUserMailHelper;
 use OCA\Settings\Settings\Admin\Users;
@@ -41,7 +42,6 @@ use OCP\Group\ISubAdmin;
 use OCP\HintException;
 use OCP\IConfig;
 use OCP\IGroup;
-use OCP\IGroupManager;
 use OCP\IL10N;
 use OCP\IPhoneNumberUtil;
 use OCP\IRequest;
@@ -68,7 +68,7 @@ class UsersController extends AUserDataOCSController {
 		IRequest $request,
 		IUserManager $userManager,
 		IConfig $config,
-		IGroupManager $groupManager,
+		OrganizationGroupManager $groupManager,
 		IUserSession $userSession,
 		IAccountManager $accountManager,
 		ISubAdmin $subAdminManager,
@@ -1388,15 +1388,13 @@ class UsersController extends AUserDataOCSController {
 			// Self lookup or admin lookup
 			$groups = array_map(
 				function (Group $group) {
-					$organization = $this->organizationMapper->findByGroupId($group->getGID());
 					return [
 						'id' => $group->getGID(),
 						'displayname' => $group->getDisplayName(),
 						'usercount' => $group->count(),
 						'disabled' => $group->countDisabled(),
 						'canAdd' => $group->canAddUser(),
-						'canRemove' => $group->canRemoveUser(),
-						'isOrganization' => !!$organization
+						'canRemove' => $group->canRemoveUser()
 					];
 				},
 				array_values($this->groupManager->getUserGroups($targetUser)),
@@ -1417,9 +1415,9 @@ class UsersController extends AUserDataOCSController {
 					),
 					$this->groupManager->getUserGroupIds($targetUser)
 				));
+
 				$groups = array_map(
 					function (string $gid) {
-						$organization = $this->organizationMapper->findByGroupId($group->getGID());
 						$group = $this->groupManager->get($gid);
 
 						return [
@@ -1429,7 +1427,6 @@ class UsersController extends AUserDataOCSController {
 							'disabled' => $group->countDisabled(),
 							'canAdd' => $group->canAddUser(),
 							'canRemove' => $group->canRemoveUser(),
-							'isOrganization' => !!$organization
 						];
 					},
 					$gids,

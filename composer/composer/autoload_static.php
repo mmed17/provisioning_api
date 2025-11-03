@@ -43,6 +43,7 @@ class ComposerStaticInitProvisioning_API
         'OCA\\Provisioning_API\\Db\\SubscriptionMapper' => __DIR__ . '/..' . '/../lib/Db/SubscriptionMapper.php',
         'OCA\\Provisioning_API\\Db\\UserMapper' => __DIR__ . '/..' . '/../lib/Db/UserMapper.php',
         'OCA\\Provisioning_API\\FederatedShareProviderFactory' => __DIR__ . '/..' . '/../lib/FederatedShareProviderFactory.php',
+        'OCA\\Provisioning_API\\Group\\OrganizationGroupManager' => __DIR__ . '/..' . '/../lib/Group/OrganizationGroupManager.php',
         'OCA\\Provisioning_API\\Listener\\UserDeletedListener' => __DIR__ . '/..' . '/../lib/Listener/UserDeletedListener.php',
         'OCA\\Provisioning_API\\Middleware\\Exceptions\\NotSubAdminException' => __DIR__ . '/..' . '/../lib/Middleware/Exceptions/NotSubAdminException.php',
         'OCA\\Provisioning_API\\Middleware\\ProvisioningApiMiddleware' => __DIR__ . '/..' . '/../lib/Middleware/ProvisioningApiMiddleware.php',

@@ -140,7 +140,10 @@ class OrganizationMapper extends QBMapper {
     public function getUserCount(int $organizationId): int {
         $qb = $this->db->getQueryBuilder();
 
-        $qb->selectAlias($qb->createFunction('COUNT(u.uid)'), 'user_count')
+        $qb->selectAlias(
+            $qb->createFunction('COUNT(u.uid)'), 
+            'user_count'
+        )
         ->from('users', 'u')
         ->where(
             $qb->expr()->eq('u.organization_id', $qb->createNamedParameter($organizationId, \PDO::PARAM_INT))
@@ -182,4 +185,66 @@ class OrganizationMapper extends QBMapper {
         return (int) $count;
     }
 
+    /**
+     * Finds group IDs that are linked to organizations,
+     * with search, limit, and offset.
+     */
+    public function findOrganizationGroupIds(string $search, ?int $limit = null, ?int $offset = 0): array {
+        $query = $this->db->getQueryBuilder();
+        $expr = $query->expr();
+        
+        $query->select('g.gid')
+              ->from('groups', 'g')
+              ->innerJoin(
+                  'g',
+                  'organizations',
+                  'o',
+                  $expr->eq('g.gid', 'o.nextcloud_group_id')
+              )
+              ->where(
+                  $expr->like(
+                      'g.gid',
+                      $query->createParameter('search_term') 
+                  )
+              );
+        
+        if ($limit !== null && $limit > 0) {
+            $query->setMaxResults($limit);
+        }
+        
+        if ($offset !== null && $offset > 0) {
+            $query->setFirstResult($offset);
+        }
+        
+        $query->setParameter('search_term', '%' . $search . '%');
+        
+        $result = $query->executeQuery(); 
+        return $result->fetchAll(\PDO::FETCH_COLUMN) ?: [];
+    }
+
+    public function findOrganizationGroupIdForUser(string $userId): ?string {
+        $query = $this->db->getQueryBuilder();
+        $expr = $query->expr();
+
+        $query->select('o.nextcloud_group_id')
+            ->from('users', 'u') // 'oc_users'
+            ->innerJoin(
+                'u',
+                'organizations', // 'oc_organizations'
+                'o',
+                // 1. Get the organization first
+                $expr->eq('u.organization_id', 'o.id') 
+            )
+            ->where(
+                $expr->eq('u.uid', $query->createParameter('user_id'))
+            );
+        
+        $query->setParameter('user_id', $userId);
+        
+        // 2. Return the group ID
+        $result = $query->executeQuery();
+        $gid = $result->fetchOne();
+        
+        return ($gid === false) ? null : (string) $gid;
+    }
 }

@@ -3,6 +3,8 @@ DROP TABLE IF EXISTS `oc_subscriptions_history`;
 DROP TABLE IF EXISTS `oc_subscriptions`;
 DROP TABLE IF EXISTS `oc_plans`;
 DROP TABLE IF EXISTS `oc_organizations`;
+DROP TABLE IF EXISTS `oc_custom_projects`;
+DROP TABLE IF EXISTS `oc_proj_private_folders`;
 
 
 -- TABLE: oc_organizations
@@ -134,7 +136,7 @@ CREATE TABLE IF NOT EXISTS `oc_custom_projects` (
   `folder_id` BIGINT NOT NULL,
   `folder_path` VARCHAR(4000) NOT NULL,
   `status` INT(11) NOT NULL DEFAULT 1,
-  `organization_id` INT(11) DEFAULT NULL, -- Temporary it should become not null
+  `organization_id` INT(11),
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   
@@ -145,23 +147,23 @@ CREATE TABLE IF NOT EXISTS `oc_custom_projects` (
   CONSTRAINT `fk_projects_owner`
     FOREIGN KEY (`owner_id`)
     REFERENCES `oc_users` (`uid`)
-    ON DELETE RESTRICT,
+    ON DELETE CASCADE,
   CONSTRAINT `fk_projects_circle`
     FOREIGN KEY (`circle_id`)
     REFERENCES `oc_circles_circle` (`unique_id`)
-    ON DELETE RESTRICT,
+    ON DELETE CASCADE,
   CONSTRAINT `fk_projects_board`
     FOREIGN KEY (`board_id`)
     REFERENCES `oc_deck_boards` (`id`)
-    ON DELETE RESTRICT,
+    ON DELETE CASCADE,
   CONSTRAINT `fk_projects_folder`
     FOREIGN KEY (`folder_id`)
     REFERENCES `oc_filecache` (`fileid`)
-    ON DELETE RESTRICT,
+    ON DELETE CASCADE,
   CONSTRAINT `fk_projects_organization`
     FOREIGN KEY (`organization_id`)
     REFERENCES `oc_organizations` (`id`)
-    ON DELETE RESTRICT
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 ALTER TABLE `oc_users`
@@ -187,6 +189,21 @@ CREATE TABLE `oc_proj_private_folders` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `proj_user_unique` (`project_id`, `user_id`) 
 );
+
+-- DEFAULT PLANS:
+-- Values remain the same as they align with the storage logic.
+-- This is the "profitable" plan structure
+INSERT INTO `oc_plans`
+    (`name`, `max_projects`, `max_members`, `shared_storage_per_project`, `private_storage_per_user`, `price`, `currency`, `is_public`)
+VALUES 
+    -- Free Plan: 1 Project, 1 Member, 20 MB Shared, 100 MB Private
+    ('Free', 1, 1, 20971520, 104857600, 0, 'EUR', TRUE),
+    -- Starter Plan: 3 Projects, 2 Members, 500 MB Shared, 300 MB Private
+    ('Starter', 3, 2, 524288000, 314572800, 12, 'EUR', TRUE),
+    -- Pro Plan: 10 Projects, 10 Members, 1 GB Shared, 500 MB Private
+    ('Pro', 10, 10, 1073741824, 524288000, 29, 'EUR', TRUE),
+    -- Business Plan: 20 Projects, 20 Members, 3 GB Shared, 1 GB Private
+    ('Business', 20, 20, 3221225472, 1073741824, 79, 'EUR', TRUE);
 
 --###############################################################
 --###                                                         ###--
@@ -270,18 +287,3 @@ ADD CONSTRAINT `fk_history_new_plan_id`
     FOREIGN KEY (`new_plan_id`)
     REFERENCES `oc_plans` (`id`)
     ON DELETE SET NULL;
-
--- DEFAULT PLANS:
--- Values remain the same as they align with the storage logic.
--- This is the "profitable" plan structure
-INSERT INTO `oc_plans`
-    (`name`, `max_projects`, `max_members`, `shared_storage_per_project`, `private_storage_per_user`, `price`, `currency`, `is_public`)
-VALUES 
-    -- Free Plan: 1 Project, 1 Member, 20 MB Shared, 100 MB Private
-    ('Free', 1, 1, 20971520, 104857600, 0, 'EUR', TRUE),
-    -- Starter Plan: 3 Projects, 2 Members, 500 MB Shared, 300 MB Private
-    ('Starter', 3, 2, 524288000, 314572800, 12, 'EUR', TRUE),
-    -- Pro Plan: 10 Projects, 10 Members, 1 GB Shared, 500 MB Private
-    ('Pro', 10, 10, 1073741824, 524288000, 29, 'EUR', TRUE),
-    -- Business Plan: 20 Projects, 20 Members, 3 GB Shared, 1 GB Private
-    ('Business', 20, 20, 3221225472, 1073741824, 79, 'EUR', TRUE);

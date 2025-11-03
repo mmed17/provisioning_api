@@ -28,6 +28,7 @@ return array(
     'OCA\\Provisioning_API\\Db\\SubscriptionMapper' => $baseDir . '/../lib/Db/SubscriptionMapper.php',
     'OCA\\Provisioning_API\\Db\\UserMapper' => $baseDir . '/../lib/Db/UserMapper.php',
     'OCA\\Provisioning_API\\FederatedShareProviderFactory' => $baseDir . '/../lib/FederatedShareProviderFactory.php',
+    'OCA\\Provisioning_API\\Group\\OrganizationGroupManager' => $baseDir . '/../lib/Group/OrganizationGroupManager.php',
     'OCA\\Provisioning_API\\Listener\\UserDeletedListener' => $baseDir . '/../lib/Listener/UserDeletedListener.php',
     'OCA\\Provisioning_API\\Middleware\\Exceptions\\NotSubAdminException' => $baseDir . '/../lib/Middleware/Exceptions/NotSubAdminException.php',
     'OCA\\Provisioning_API\\Middleware\\ProvisioningApiMiddleware' => $baseDir . '/../lib/Middleware/ProvisioningApiMiddleware.php',
