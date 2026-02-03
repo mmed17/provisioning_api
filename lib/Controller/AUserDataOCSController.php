@@ -11,8 +11,6 @@ namespace OCA\Provisioning_API\Controller;
 use OC\Group\Manager as GroupManager;
 use OC\User\Backend;
 use OC\User\NoUserException;
-use OCA\Provisioning_API\Db\OrganizationMapper;
-use OCA\Provisioning_API\Group\OrganizationGroupManager;
 use OCA\Provisioning_API\ResponseDefinitions;
 use OCP\Accounts\IAccountManager;
 use OCP\Accounts\PropertyDoesNotExistException;
@@ -55,13 +53,12 @@ abstract class AUserDataOCSController extends OCSController {
 		IRequest $request,
 		protected IUserManager $userManager,
 		protected IConfig $config,
-		protected OrganizationGroupManager $groupManager,
+		protected GroupManager $groupManager,
 		protected IUserSession $userSession,
 		protected IAccountManager $accountManager,
 		protected ISubAdmin $subAdminManager,
 		protected IFactory $l10nFactory,
 		protected IRootFolder $rootFolder,
-		protected OrganizationMapper $organizationMapper
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -144,7 +141,8 @@ abstract class AUserDataOCSController extends OCSController {
 			$additionalEmails = $additionalEmailScopes = [];
 			$emailCollection = $userAccount->getPropertyCollection(IAccountManager::COLLECTION_EMAIL);
 			foreach ($emailCollection->getProperties() as $property) {
-				$additionalEmails[] = $property->getValue();
+				$email = mb_strtolower(trim($property->getValue()));
+				$additionalEmails[] = $email;
 				if ($includeScopes) {
 					$additionalEmailScopes[] = $property->getScope();
 				}

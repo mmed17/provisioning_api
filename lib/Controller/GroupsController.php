@@ -8,10 +8,11 @@ declare(strict_types=1);
  */
 namespace OCA\Provisioning_API\Controller;
 
-use Exception;
+use OCA\Provisioning_API\ResponseDefinitions;
 use OCA\Settings\Settings\Admin\Sharing;
 use OCA\Settings\Settings\Admin\Users;
 use OCP\Accounts\IAccountManager;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
@@ -31,16 +32,6 @@ use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\L10N\IFactory;
 use Psr\Log\LoggerInterface;
-use OCA\GroupFolders\Folder\FolderManager;
-use OCA\Provisioning_API\Db\OrganizationMapper;
-use OCA\Provisioning_API\Db\PlanMapper;
-use OCA\Provisioning_API\Db\SubscriptionMapper;
-use OCA\Provisioning_API\Group\OrganizationGroupManager;
-use OCP\IDBConnection;
-use OCA\Provisioning_API\Service\SubscriptionService;
-use OCA\Provisioning_API\Service\OrganizationService;
-use OCA\Provisioning_API\Service\PlanService;
-use OCP\EventDispatcher\IEventDispatcher;
 
 /**
  * @psalm-import-type Provisioning_APIGroupDetails from ResponseDefinitions
@@ -53,25 +44,15 @@ class GroupsController extends AUserDataOCSController {
 		IRequest $request,
 		IUserManager $userManager,
 		IConfig $config,
-		OrganizationGroupManager $groupManager,
+		IGroupManager $groupManager,
 		IUserSession $userSession,
 		IAccountManager $accountManager,
 		ISubAdmin $subAdminManager,
 		IFactory $l10nFactory,
 		IRootFolder $rootFolder,
-		OrganizationMapper $organizationMapper,
 		private LoggerInterface $logger,
-		private SubscriptionService $subscriptionService,
-		private PlanService $planService,
-		private SubscriptionMapper $subscriptionMapper,
-		private PlanMapper $planMapper,
-		private FolderManager $folderManager,
-		private OrganizationService $organizationService,
-		private IDBConnection $db,
-		private IEventDispatcher $eventDispatcher
 	) {
-		parent::__construct(
-			$appName,
+		parent::__construct($appName,
 			$request,
 			$userManager,
 			$config,
@@ -81,7 +62,6 @@ class GroupsController extends AUserDataOCSController {
 			$subAdminManager,
 			$l10nFactory,
 			$rootFolder,
-			$organizationMapper
 		);
 	}
 
@@ -251,51 +231,9 @@ class GroupsController extends AUserDataOCSController {
 
 		throw new OCSException('The requested group could not be found', OCSController::RESPOND_NOT_FOUND);
 	}
-	
-	/**
-	 * Get organization details
-	 *
-	 * @param string $groupId ID of the group
-	 * @return DataResponse
-	 * @throws OCSNotFoundException
-	 */
-	#[NoAdminRequired]
-    public function getOrganization(string $groupId): DataResponse {
-        $groupId = urldecode($groupId);
-
-        // 1. Find the organization using the group ID.
-        $organization = $this->organizationMapper->findByGroupId($groupId);
-        if ($organization === null) {
-            throw new OCSNotFoundException('Organization does not exist for the given group');
-        }
-
-        // 2. Find the active subscription using the organization's numeric ID.
-        $subscription = $this->subscriptionMapper->findByOrganizationId($organization->getId());
-        if ($subscription === null) {
-            throw new OCSNotFoundException('No active subscription found for this organization');
-        }
-        
-        // 3. Find the details of the plan associated with the subscription.
-        $plan = $this->planMapper->find($subscription->getPlanId());
-        if ($plan === null) {
-            // This case should ideally not happen if data is consistent.
-            throw new OCSNotFoundException('The plan associated with this subscription could not be found');
-        }
-
-        // 4. Return all the relevant data in a structured response.
-        return new DataResponse([
-            'organization' => [
-                'id' => $organization->getId(),
-                'name' => $organization->getName(),
-                'nextcloud_group_id' => $organization->getNextcloudGroupId(),
-            ],
-            'subscription' => $subscription,
-            'plan' => $plan,
-        ]);
-    }
 
 	/**
-	 * Create a new group with its subscription details
+	 * Create a new group
 	 *
 	 * @param string $groupid ID of the group
 	 * @param string $displayname Display name of the group
@@ -304,68 +242,26 @@ class GroupsController extends AUserDataOCSController {
 	 *
 	 * 200: Group created successfully
 	 */
-	#[AuthorizedAdminSetting(settings: Users::class)]
+	#[AuthorizedAdminSetting(settings:Users::class)]
 	#[PasswordConfirmationRequired]
-	public function addGroup(
-		string $groupid,
-		string $validity,
-		?int $memberLimit,
-		?int $projectsLimit,
-		?int $sharedStoragePerProject,
-		?int $privateStorage,
-		?int $planId,
-		?float $price,
-		?string $currency = 'EUR',
-		?string $displayname = '',
-	): DataResponse {
-
+	public function addGroup(string $groupid, string $displayname = ''): DataResponse {
+		// Validate name
 		if (empty($groupid)) {
-			$this->logger->error(
-				'Group name not supplied',
-				['app' => 'provisioning_api']
-			);
+			$this->logger->error('Group name not supplied', ['app' => 'provisioning_api']);
 			throw new OCSException('Invalid group name', 101);
 		}
-
+		// Check if it exists
 		if ($this->groupManager->groupExists($groupid)) {
 			throw new OCSException('group exists', 102);
 		}
-
-		try {
-			$this->db->beginTransaction();
-			$group = $this->groupManager->createGroup($groupid);
-			if ($group === null) {
-				throw new OCSException('Not supported by backend', 103);
-			}
-
-			$organization = $this->organizationService->createOrganization(
-				$group->getGID(),
-				$displayname
-			);
-			
-			if ($organization === null) {
-				throw new OCSException('Failed to create organization', 104);
-			}
-			
-			$subscription = $this->subscriptionService->createSubscription(
-				$organization->getId(),
-				$validity,
-				$planId,
-				$memberLimit,
-				$projectsLimit,
-				$sharedStoragePerProject,
-				$privateStorage,
-				$price,
-				$currency
-			);
-			
-			$this->db->commit();
-		} catch (\Exception $e) {
-			$this->db->rollBack();
-			throw new OCSException('Failed to create organization: ' . $e->getMessage(), 104);
+		$group = $this->groupManager->createGroup($groupid);
+		if ($group === null) {
+			throw new OCSException('Not supported by backend', 103);
 		}
-
-		return new DataResponse($subscription);
+		if ($displayname !== '') {
+			$group->setDisplayName($displayname);
+		}
+		return new DataResponse();
 	}
 
 	/**
@@ -398,71 +294,6 @@ class GroupsController extends AUserDataOCSController {
 			throw new OCSException('', OCSController::RESPOND_UNKNOWN_ERROR);
 		}
 	}
-	
-	/**
-     * Updates an organization's details and its subscription plan.
-     * This is the single entry point for all edits.
-     *
-     * @param string $groupId The group ID of the organization to update.
-     * @param string $displayName The new display name for the organization.
-     * @param int $planId The ID of the plan (can be an existing public plan or a custom one).
-     * @param int $maxMembers The new limit for members.
-     * @param int $maxProjects The new limit for projects.
-     * @param int $sharedStoragePerProject The new shared storage limit in bytes.
-     * @param int $privateStoragePerUser The new private storage limit in bytes.
-     * @param string $status The new status for the subscription (e.g., 'active', 'paused').
-     * @param string|null $extendDuration A string to extend the subscription (e.g., "1 month").
-     * @param float|null $price The price for a custom plan.
-     * @param string|null $currency The currency for a custom plan.
-     *
-     * @return DataResponse
-     * @throws OCSException
-     */
-    #[AuthorizedAdminSetting(settings:Users::class)]
-    #[PasswordConfirmationRequired]
-    public function updateSubscription(
-        string $groupId,
-        string $displayName,
-        int $planId,
-        int $maxMembers,
-        int $maxProjects,
-        int $sharedStoragePerProject,
-        int $privateStoragePerUser,
-        string $status,
-        ?string $extendDuration = null,
-        ?float $price = null,
-        ?string $currency = null
-    ): DataResponse {
-        $this->db->beginTransaction();
-        try {
-            $updatedSubscription = $this->subscriptionService->updateSubscription(
-                $groupId,
-                $displayName,
-                $planId,
-                $maxMembers,
-                $maxProjects,
-                $sharedStoragePerProject,
-                $privateStoragePerUser,
-                $status,
-                $extendDuration,
-                $price,
-                $currency,
-                $this->userSession->getUser()->getUID() // Pass the current user for the history log
-            );
-
-            $this->db->commit();
-            return new DataResponse(['subscription' => $updatedSubscription]);
-
-        } catch (Exception $e) {
-            $this->db->rollBack();
-            $this->logger->error('Failed to update organization: ' . $e->getMessage(), ['exception' => $e]);
-            // Re-throw specific exceptions for better client-side error handling
-            if ($e instanceof OCSNotFoundException) {
-                throw $e;
-            }
-            throw new OCSException('Failed to update organization: ' . $e->getMessage());
-        }
-    }
 
 	/**
 	 * Delete a group
@@ -478,40 +309,15 @@ class GroupsController extends AUserDataOCSController {
 	public function deleteGroup(string $groupId): DataResponse {
 		$groupId = urldecode($groupId);
 
-		try {
-			$this->db->beginTransaction();
-			
-			// 1. Find the organization linked to this Nextcloud group.
-            $organization = $this->organizationMapper->findByGroupId($groupId);
-
-            // Only proceed if an organization is found.
-            if ($organization !== null) {
-                // 2. Find subscription for this organization.
-                $subscription = $this->subscriptionMapper->findByOrganizationId($organization->getId());
-
-				// 3. For subscription, get its plan.
-				$plan = $this->planMapper->find($subscription->getPlanId());
-            }
-
-			// Check it exists
-			if (!$this->groupManager->groupExists($groupId)) {
-				throw new OCSException('', 101);
-			} elseif ($groupId === 'admin' || !$this->groupManager->get($groupId)->delete()) {
-				// Cannot delete admin group
-				throw new OCSException('', 102);
-			}
-
-			// 4. If the plan exists and is NOT public, it's a custom plan that must be deleted.
-			if ($plan !== null && !$plan->getIsPublic()) {
-				$this->planMapper->delete($plan);
-			}
-
-			$this->db->commit();
-			return new DataResponse();
-		} catch (Exception $e) {
-			$this->db->rollBack();
-			throw $e;
+		// Check it exists
+		if (!$this->groupManager->groupExists($groupId)) {
+			throw new OCSException('', 101);
+		} elseif ($groupId === 'admin' || !$this->groupManager->get($groupId)->delete()) {
+			// Cannot delete admin group
+			throw new OCSException('', 102);
 		}
+
+		return new DataResponse();
 	}
 
 	/**

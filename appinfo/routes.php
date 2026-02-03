@@ -13,20 +13,13 @@ return [
 		['root' => '/cloud', 'name' => 'Apps#enable', 'url' => '/apps/{app}', 'verb' => 'POST'],
 		['root' => '/cloud', 'name' => 'Apps#disable', 'url' => '/apps/{app}', 'verb' => 'DELETE'],
 
-		// Groups (Correct Order)
+		// Groups
 		['root' => '/cloud', 'name' => 'Groups#getGroups', 'url' => '/groups', 'verb' => 'GET'],
 		['root' => '/cloud', 'name' => 'Groups#getGroupsDetails', 'url' => '/groups/details', 'verb' => 'GET'],
-		['root' => '/cloud', 'name' => 'Groups#addGroup', 'url' => '/groups', 'verb' => 'POST'],
-
-		// Plans (Admins only)
-		['root' => '/cloud', 'name' => 'Plans#getPlans', 'url' => '/plans', 'verb' => 'GET'],
-
-		['root' => '/cloud', 'name' => 'Groups#getGroupUsersDetails', 'url' => '/groups/{groupId}/users/details', 'verb' => 'GET', 'requirements' => ['groupId' => '.+']],
 		['root' => '/cloud', 'name' => 'Groups#getGroupUsers', 'url' => '/groups/{groupId}/users', 'verb' => 'GET', 'requirements' => ['groupId' => '.+']],
+		['root' => '/cloud', 'name' => 'Groups#getGroupUsersDetails', 'url' => '/groups/{groupId}/users/details', 'verb' => 'GET', 'requirements' => ['groupId' => '.+']],
 		['root' => '/cloud', 'name' => 'Groups#getSubAdminsOfGroup', 'url' => '/groups/{groupId}/subadmins', 'verb' => 'GET', 'requirements' => ['groupId' => '.+']],
-		['root' => '/cloud', 'name' => 'Groups#getOrganization', 'url' => '/groups/{groupId}/subscription', 'verb' => 'GET', 'requirements' => ['groupId' => '.+']],
-		['root' => '/cloud', 'name' => 'Groups#updateSubscription', 'url' => '/groups/{groupId}/subscription', 'verb' => 'PUT', 'requirements' => ['groupId' => '.+']],
-
+		['root' => '/cloud', 'name' => 'Groups#addGroup', 'url' => '/groups', 'verb' => 'POST'],
 		['root' => '/cloud', 'name' => 'Groups#getGroup', 'url' => '/groups/{groupId}', 'verb' => 'GET', 'requirements' => ['groupId' => '.+']],
 		['root' => '/cloud', 'name' => 'Groups#updateGroup', 'url' => '/groups/{groupId}', 'verb' => 'PUT', 'requirements' => ['groupId' => '.+']],
 		['root' => '/cloud', 'name' => 'Groups#deleteGroup', 'url' => '/groups/{groupId}', 'verb' => 'DELETE', 'requirements' => ['groupId' => '.+']],
@@ -42,6 +35,7 @@ return [
 		['root' => '/cloud', 'name' => 'Users#getCurrentUser', 'url' => '/user', 'verb' => 'GET'],
 		['root' => '/cloud', 'name' => 'Users#getEditableFields', 'url' => '/user/fields', 'verb' => 'GET'],
 		['root' => '/cloud', 'name' => 'Users#getEditableFieldsForUser', 'url' => '/user/fields/{userId}', 'verb' => 'GET'],
+		['root' => '/cloud', 'name' => 'Users#getEnabledApps', 'url' => '/user/apps', 'verb' => 'GET'],
 		['root' => '/cloud', 'name' => 'Users#editUser', 'url' => '/users/{userId}', 'verb' => 'PUT'],
 		['root' => '/cloud', 'name' => 'Users#editUserMultiValue', 'url' => '/users/{userId}/{collectionName}', 'verb' => 'PUT', 'requirements' => ['collectionName' => '^(?!enable$|disable$)[a-zA-Z0-9_]*$']],
 		['root' => '/cloud', 'name' => 'Users#wipeUserDevices', 'url' => '/users/{userId}/wipe', 'verb' => 'POST'],
