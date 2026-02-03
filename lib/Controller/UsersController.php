@@ -125,10 +125,13 @@ class UsersController extends AUserDataOCSController {
 		$subAdminManager = $this->groupManager->getSubAdmin();
 		$isAdmin = $this->groupManager->isAdmin($uid);
 		$isDelegatedAdmin = $this->groupManager->isDelegatedAdmin($uid);
+		
+
 		if ($isAdmin || $isDelegatedAdmin) {
 			$users = $this->userManager->search($search, $limit, $offset);
 		} elseif ($subAdminManager->isSubAdmin($user)) {
 			$subAdminOfGroups = $subAdminManager->getSubAdminsGroups($user);
+			
 			foreach ($subAdminOfGroups as $key => $group) {
 				$subAdminOfGroups[$key] = $group->getGID();
 			}
@@ -465,7 +468,8 @@ class UsersController extends AUserDataOCSController {
         string $password,     // [MODIFIED] - Now required, no default
         string $displayName,  // [MODIFIED] - Now required, no default
         string $email,        // [MODIFIED] - Now required, no default
-        string $group         // [MODIFIED] - Now a required string, not array
+        string $group,         // [MODIFIED] - Now a required string, not array
+		array $subadmin = [],
     ): DataResponse {
         $user = $this->userSession->getUser();
         $isAdmin = $this->groupManager->isAdmin($user->getUID());
@@ -506,7 +510,25 @@ class UsersController extends AUserDataOCSController {
             throw new OCSException($this->l10n->t('Insufficient privileges for group %1$s', [$group]), 105);
         }
         
-        // [REMOVED] - Entire $subadmin logic block removed
+		$subadminGroups = [];
+		if ($subadmin !== []) {
+			foreach ($subadmin as $groupid) {
+				$group = $this->groupManager->get($groupid);
+				// Check if group exists
+				if ($group === null) {
+					throw new OCSException($this->l10n->t('Sub-admin group does not exist'), 109);
+				}
+				// Check if trying to make subadmin of admin group
+				if ($group->getGID() === 'admin') {
+					throw new OCSException($this->l10n->t('Cannot create sub-admins for admin group'), 103);
+				}
+				// Check if has permission to promote subadmins
+				if (!$subAdminManager->isSubAdminOfGroup($user, $group) && !$isAdmin && !$isDelegatedAdmin) {
+					throw new OCSForbiddenException($this->l10n->t('No permissions to promote sub-admins'));
+				}
+				$subadminGroups[] = $group;
+			}
+		}
 
         $generatePasswordResetToken = false;
         if (strlen($password) > IUserManager::MAX_PASSWORD_LENGTH) {
@@ -517,7 +539,10 @@ class UsersController extends AUserDataOCSController {
             $newUser = $this->userManager->createUser($userid, $password);
             $this->logger->info('Successful addUser call with userid: ' . $userid, ['app' => 'ocs_api']);
 
-            // [REMOVED] - 'foreach ($subadminGroups...)' loop removed
+			foreach ($subadminGroups as $group) {
+				$subAdminManager->createSubAdmin($newUser, $group);
+			}
+
             // [MODIFIED] - Set displayName and Quota
             try {
                 $this->editUser($userid, self::USER_FIELD_DISPLAYNAME, $displayName);

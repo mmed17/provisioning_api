@@ -128,15 +128,32 @@ CREATE TABLE IF NOT EXISTS `oc_custom_projects` (
   `name` VARCHAR(255) NOT NULL,
   `number` VARCHAR(255) NOT NULL,
   `type` INT(11) NOT NULL,
-  `address` VARCHAR(255) NOT NULL,
   `description` TEXT NOT NULL,
+  
+  /* --- NEW FIELDS START --- */
+  `client_name` VARCHAR(255) DEFAULT NULL,
+  `client_role` VARCHAR(255) DEFAULT NULL,
+  `client_phone` VARCHAR(64) DEFAULT NULL,
+  `client_email` VARCHAR(255) DEFAULT NULL,
+  `client_address` VARCHAR(255) DEFAULT NULL,
+  
+  `loc_street` VARCHAR(255) DEFAULT NULL,
+  `loc_city` VARCHAR(255) DEFAULT NULL,
+  `loc_zip` VARCHAR(64) DEFAULT NULL,
+  `external_ref` VARCHAR(255) DEFAULT NULL,
+  
+  `date_start` DATE DEFAULT NULL,
+  `date_end` DATE DEFAULT NULL,
+  /* --- NEW FIELDS END --- */
+
   `owner_id` VARCHAR(64) NOT NULL,
   `circle_id` VARCHAR(31) NOT NULL,
   `board_id` INT(11) NOT NULL,
   `folder_id` BIGINT NOT NULL,
   `folder_path` VARCHAR(4000) NOT NULL,
   `status` INT(11) NOT NULL DEFAULT 1,
-  `organization_id` INT(11),
+  `organization_id` INT(11) NOT NULL,
+  `white_board_id` VARCHAR(255) NOT NULL,
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   
@@ -144,6 +161,7 @@ CREATE TABLE IF NOT EXISTS `oc_custom_projects` (
   INDEX `projectNameIndex` (`name`),
   INDEX `projectOwnerIdIndex` (`owner_id`),
   UNIQUE INDEX `projectCircleIdUnique` (`circle_id`),
+  
   CONSTRAINT `fk_projects_owner`
     FOREIGN KEY (`owner_id`)
     REFERENCES `oc_users` (`uid`)
@@ -287,3 +305,19 @@ ADD CONSTRAINT `fk_history_new_plan_id`
     FOREIGN KEY (`new_plan_id`)
     REFERENCES `oc_plans` (`id`)
     ON DELETE SET NULL;
+
+
+ALTER TABLE `oc_custom_projects`
+DROP COLUMN `address`,
+ADD COLUMN `client_name` VARCHAR(255) DEFAULT NULL AFTER `description`,
+ADD COLUMN `client_role` VARCHAR(255) DEFAULT NULL AFTER `client_name`,
+ADD COLUMN `client_phone` VARCHAR(64) DEFAULT NULL AFTER `client_role`,
+ADD COLUMN `client_email` VARCHAR(255) DEFAULT NULL AFTER `client_phone`,
+ADD COLUMN `client_address` VARCHAR(255) DEFAULT NULL AFTER `client_email`,
+ADD COLUMN `loc_street` VARCHAR(255) DEFAULT NULL AFTER `client_address`,
+ADD COLUMN `loc_city` VARCHAR(255) DEFAULT NULL AFTER `loc_street`,
+ADD COLUMN `loc_zip` VARCHAR(64) DEFAULT NULL AFTER `loc_city`,
+ADD COLUMN `external_ref` VARCHAR(255) DEFAULT NULL AFTER `loc_zip`,
+ADD COLUMN `date_start` DATE DEFAULT NULL AFTER `external_ref`,
+ADD COLUMN `date_end` DATE DEFAULT NULL AFTER `date_start`;
+

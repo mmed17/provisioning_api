@@ -13,7 +13,6 @@ class OrganizationGroupManager implements IGroupManager {
 
     public function __construct(
         private IGroupManager $originalGroupManager,
-        private IDBConnection $dbConnection,
         private OrganizationMapper $organizationMapper,
         private GroupManager $statedGroupManager,
     ) {}
